@@ -1,0 +1,29 @@
+{
+  "name": "kitchen-helper",
+  "version": "0.1.0",
+  "private": true,
+  "description": "TypeScript development toolchain for IrisView AR glasses applications",
+  "type": "module",
+  "scripts": {
+    "ivt": "node packages/toolchain/src/cli.ts",
+    "doctor": "node packages/toolchain/src/cli.ts doctor",
+    "toolchain:check": "tsc -p packages/toolchain/tsconfig.json",
+    "toolchain:test": "vp test packages/toolchain/tests",
+    "app:build": "node packages/toolchain/src/cli.ts build apps/kitchen-helper",
+    "app:test": "node packages/toolchain/src/cli.ts test apps/kitchen-helper",
+    "app:package": "node packages/toolchain/src/cli.ts package apps/kitchen-helper",
+    "app:run": "node packages/toolchain/src/cli.ts run --latest --project apps/kitchen-helper",
+    "app:smoke": "node packages/toolchain/src/cli.ts smoke apps/kitchen-helper",
+    "check": "tsc -p packages/toolchain/tsconfig.json && vp test packages/toolchain/tests"
+  },
+  "devDependencies": {
+    "typescript": "~7.0.2"
+  },
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "12.18.0",
+      "onFail": "download"
+    }
+  }
+}

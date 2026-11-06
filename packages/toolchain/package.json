@@ -1,0 +1,21 @@
+{
+  "name": "@kitchen-helper/ivt",
+  "version": "0.1.0",
+  "private": true,
+  "description": "TypeScript development toolchain for IrisView AR glasses applications",
+  "bin": {
+    "ivt": "./src/cli.ts"
+  },
+  "type": "module",
+  "exports": {
+    ".": "./src/cli.ts"
+  },
+  "scripts": {
+    "check": "tsc -p tsconfig.json",
+    "test": "vp test tests"
+  },
+  "dependencies": {
+    "typescript": "~7.0.2",
+    "vite": "catalog:"
+  }
+}

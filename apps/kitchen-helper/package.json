@@ -1,0 +1,13 @@
+{
+  "name": "com.example.kitchenhelper",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Kitchen Helper — a TypeScript IrisView AR glasses demo application",
+  "type": "module",
+  "scripts": {
+    "build": "node ../../packages/toolchain/src/cli.ts build",
+    "test": "node ../../packages/toolchain/src/cli.ts test",
+    "package": "node ../../packages/toolchain/src/cli.ts package",
+    "run": "node ../../packages/toolchain/src/cli.ts run --latest --project ."
+  }
+}
