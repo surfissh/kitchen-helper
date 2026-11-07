@@ -190,6 +190,7 @@ export function writeIfChanged(path: string, data: string | Uint8Array): boolean
       return false;
     }
   }
+  ensureDir(dirname(path));
   writeFileSync(path, next);
   return true;
 }
