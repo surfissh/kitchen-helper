@@ -112,6 +112,9 @@ export async function devCommand(
     "--port",
     String(options.port),
     "--allow-debug-unsigned",
+    // A rebuilt debug package has different bytes for the same versionCode;
+    // the Developer Kit allows this explicit local-development replacement.
+    "--allow-debug-replace",
   ];
   log.step("starting simulator session (close the Client window or press Ctrl+C to stop)");
   const code = await runSdkPassthrough(args, { kitRoot: context.kitRoot, cwd: project.root });

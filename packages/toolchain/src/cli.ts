@@ -483,7 +483,8 @@ function runOptions(parsed: ParsedFlags) {
     displayMode: displayMode as "mono" | "stereo",
     audioMode: audioMode as "desktop" | "silent",
     port,
-    allowDebugReplace: flagBoolean(parsed, "allow-debug-replace"),
+    allowDebugReplace:
+      flagBoolean(parsed, "allow-debug-replace") || !flagBoolean(parsed, "no-replace"),
     dryRun: flagBoolean(parsed, "dry-run"),
   };
 }

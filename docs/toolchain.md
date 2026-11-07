@@ -72,14 +72,15 @@ npm link packages/toolchain   # bin: ivt -> src/cli.ts
 
 确保 Kit 一致性后调用 SDK `run`。常用参数：
 
-| 参数                    | 默认      | 说明                              |
-| ----------------------- | --------- | --------------------------------- |
-| `--profile`             | `release` | `release` / `diagnostic`          |
-| `--display-mode`        | `mono`    | `mono` / `stereo`                 |
-| `--audio-mode`          | `desktop` | `desktop` / `silent`              |
-| `--port`                | `28045`   | 模拟器 TCP 端口                   |
-| `--allow-debug-replace` | off       | 同 versionCode 替换已安装调试应用 |
-| `--dry-run`             | off       | 打印启动计划，不启动模拟器        |
+| 参数                    | 默认      | 说明                                                    |
+| ----------------------- | --------- | ------------------------------------------------------- |
+| `--profile`             | `release` | `release` / `diagnostic`                                |
+| `--display-mode`        | `mono`    | `mono` / `stereo`                                       |
+| `--audio-mode`          | `desktop` | `desktop` / `silent`                                    |
+| `--port`                | `28045`   | 模拟器 TCP 端口                                         |
+| `--allow-debug-replace` | on        | 同 versionCode 替换已安装调试应用（重新打包后默认可用） |
+| `--no-replace`          | off       | 严格拒绝同 versionCode 的字节变化                       |
+| `--dry-run`             | off       | 打印启动计划，不启动模拟器                              |
 
 `run` 是阻塞式会话：关闭 Client 窗口或按 Ctrl+C 结束。
 
