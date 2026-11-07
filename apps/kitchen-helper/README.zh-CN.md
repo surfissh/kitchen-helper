@@ -85,7 +85,7 @@ Key 在**运行时**从应用私有数据目录读取，不会进入 bundle。`v
 
 ```text
 KITCHEN_HELPER_DATA_DIR {"path":".../sim-state/applications/data/com.example.kitchenhelper"}
-KITCHEN_HELPER_LLM_KEY {"source":"none","file":".../applications/data/com.example.kitchenhelper/deepseek-key.txt","model":"deepseek-chat"}
+KITCHEN_HELPER_LLM_KEY {"source":"none","file":".../applications/data/com.example.kitchenhelper/deepseek-key.txt","model":"deepseek-flash"}
 ```
 
 应用首次运行会自动生成带注释模板的 `deepseek-key.txt`。把 `sk-...` 粘贴进去
@@ -94,6 +94,10 @@ KITCHEN_HELPER_LLM_KEY {"source":"none","file":".../applications/data/com.exampl
 `app-src/config.ts` 保留一个开发占位符用于快速试验。`sim-state/` 已被 git 忽略。
 
 未配置 Key 时应用仍可用：菜谱页显示“本地解析（未配置 Key）”，步骤页提问由本地提示库回答。
+
+DeepSeek 调用关闭思考模式并显式设置预算（结构化 90 秒 / 8K tokens，问答 30 秒 / 1K）；超时
+覆盖整个响应体；JSON Output 空载荷、`finish_reason=length` 截断或 JSON 解析失败会重试一次，
+仍失败才降级到内置快照 / 本地解析器。
 
 > ⚠️ 打进 `.fuiapp` 的 Key（例如通过 `app-src/config.ts`）对拿到安装包的人可见。运行时
 > Key 文件不会进入安装包；生产环境仍应通过后端代理下发短期令牌。
@@ -156,7 +160,7 @@ FUSIONUI_DEMO_TEST_USER_TEXT='番茄炒蛋' \
 
 ## 测试
 
-`node packages/toolchain/src/cli.ts test apps/kitchen-helper` 会运行 6 个测试文件（43 个测试用例）：
+`node packages/toolchain/src/cli.ts test apps/kitchen-helper` 会运行 9 个测试文件（61 个测试用例）：
 
 - 首页 → 聆听 → 加载 → 菜谱 → 准备 → 步骤 → 完成 / 异常的全流程；
 - 确认键“先开倒计时”优先级、跨步骤叠加的多个倒计时；

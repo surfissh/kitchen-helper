@@ -50,7 +50,7 @@ This separation makes the entire interaction model testable without the simulato
 | Source       | Action           | Home                          | Prep                                       | Cooking                     |
 | ------------ | ---------------- | ----------------------------- | ------------------------------------------ | --------------------------- |
 | temple tap   | `activate`       | start listening               | mark card ready; when ready, start cooking | start timer, else next step |
-| temple swipe | `up` / `down`    | —                             | switch ingredient/cookware row             | scroll step content         |
+| temple swipe | `up` / `down`    | —                             | switch ingredient/cookware row             | page long instructions      |
 | temple swipe | `left` / `right` | move recommendation highlight | move card focus                            | next / previous step        |
 | back gesture | `back`           | —                             | back to recipe                             | back to recipe              |
 | text box     | command words    | same as above                 | same as above                              | same as above               |
@@ -71,8 +71,9 @@ and `*`. The text channel is also used by `FUSIONUI_DEMO_TEST_USER_TEXT` for aut
   idle timers, rendered as vertical bars.
 - Progress is driven by the reducer clock. When a timer reaches zero it becomes `done`, turns
   green and keeps its label/time until the user finishes the dish.
-- Step scrolling uses page indexes 0–2; `up/down` changes the page and the renderer animates
-  the content offset.
+- Step instructions use the same 0–2 page indexes for pagination: short instructions are
+  auto-fitted to one page, longer ones are split into up to three pages and `up/down` flips
+  pages (the renderer swaps the text, it does not animate an offset).
 
 ## Preparation focus rules
 
@@ -201,6 +202,12 @@ action when allowed. Back always returns home.
   fixed card slots and swaps their contents (text, icon, accent color) instead of sliding
   them; the focused slot is expressed with colors only. Style/opacity animation on widgets
   whose geometry never changes is safe and is what `ui/anim.ts` is used for.
+- The cooking instruction is auto-fitted to its fixed panel (`ui/instruction-layout.ts`):
+  glyph widths and line breaks are estimated locally, the largest readable font size that
+  fits is used, and longer text is paged through the existing up/down pager (at most three
+  pages). The wrapper follows basic CJK line-breaking rules (closing punctuation never starts
+  a line) and never splits Latin tokens such as `100g`; the structuring prompt keeps
+  `instructionZh` at 40 characters or fewer so most steps fit on one page.
 - Icons are generated PNGs (`tools/generate-icons.py`) placed in `src/assets/icons`; the
   bundle resolves them relative to `__dirname` (the packaged `src/` directory).
 - A zero-width native view also stalls presentation, so progress fills are never set to 0.
@@ -212,7 +219,8 @@ action when allowed. Back always returns home.
 | DeepSeek key (preferred)          | `deepseek-key.txt` in the app's private data directory inside the simulator state dir |
 | DeepSeek key (CI/overrides)       | `DEEPSEEK_API_KEY` environment variable (wins over the file)                          |
 | DeepSeek key (dev placeholder)    | `app-src/config.ts` (compiled into the bundle — avoid)                                |
-| DeepSeek base/model/timeout       | `app-src/config.ts`                                                                   |
+| DeepSeek base/model               | `app-src/config.ts` (`deepseek-flash`, `https://api.deepseek.com`)                    |
+| DeepSeek request budgets          | `app-src/config.ts` (`*_TIMEOUT_MS`, `*_MAX_TOKENS`)                                  |
 | HowToCook site/repo/timeouts      | `app-src/config.ts`                                                                   |
 | Application identity/capabilities | `FusionUIApp.json`                                                                    |
 
@@ -231,7 +239,7 @@ run prints the resolved private directory:
 
 ```text
 KITCHEN_HELPER_DATA_DIR {"path":".../apps/kitchen-helper/sim-state/applications/data/com.example.kitchenhelper"}
-KITCHEN_HELPER_LLM_KEY {"source":"file","file":".../applications/data/com.example.kitchenhelper/deepseek-key.txt","model":"deepseek-chat"}
+KITCHEN_HELPER_LLM_KEY {"source":"file","file":".../applications/data/com.example.kitchenhelper/deepseek-key.txt","model":"deepseek-flash"}
 ```
 
 The app seeds that `deepseek-key.txt` with a comment template when it is missing.
@@ -240,11 +248,24 @@ restart the app; the key is read at request time, never baked into the `.fuiapp`
 under `sim-state/`, which is git-ignored. A key compiled into a `.fuiapp` would be readable by
 anyone who obtains the package, so production must still use a backend token proxy.
 
+### LLM request behavior
+
+- **Thinking mode is disabled** for structuring and Q&A (`thinking: {"type": "disabled"}`).
+  Recent DeepSeek models enable thinking by default and charge its reasoning tokens against
+  `max_tokens`; long recipes used to lose the visible JSON after reasoning consumed the budget.
+- Budgets: 90 s / 8 192 tokens for structuring, 30 s / 1 024 tokens for the assistant. The HTTP
+  timeout stays armed while the response body is read, so it bounds generation and not just the
+  response headers.
+- DeepSeek's JSON Output mode replaces a non-JSON payload with spaces, so a truncated or
+  rejected payload can look like an empty response. The adapter retries that, a
+  `finish_reason=length` truncation and unparsable JSON once; if it still fails, the service
+  falls back to the offline snapshot or the deterministic local parser instead of failing the flow.
+
 ## Verification
 
 | Check                             | Result                                                                    |
 | --------------------------------- | ------------------------------------------------------------------------- |
-| `ivt test apps/kitchen-helper`    | pass — 6 files, 43 tests (reducer, parsers, LLM normalization, fallbacks) |
+| `ivt test apps/kitchen-helper`    | pass — 9 files, 61 tests (reducer, parsers, LLM normalization, fallbacks) |
 | `ivt package apps/kitchen-helper` | pass — `.fuiapp`, debug-unsigned                                          |
 | `ivt smoke apps/kitchen-helper`   | pass — `IrisView application frame 1`                                     |
 | Text injection `番茄炒蛋`         | pass — live search + local structuring → recipe screen                    |

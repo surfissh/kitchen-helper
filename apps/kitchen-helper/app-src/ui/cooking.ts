@@ -7,6 +7,7 @@ import { formatClock, pick, text } from "../model/i18n.ts";
 import { currentStep, visibleTimers } from "../model/state.ts";
 import type { AppState, RecipeStep, TimerState, UiLanguage } from "../model/types.ts";
 import { fadeIn, popIn, pulseOpacity } from "./anim.ts";
+import { fitTextBlock, layoutInstruction } from "./instruction-layout.ts";
 import { BaseScreen } from "./screen.ts";
 import { COLORS, FONT_SIZE } from "./theme.ts";
 import {
@@ -51,7 +52,9 @@ export class CookingScreen extends BaseScreen {
   private readonly step: RecipeStep;
   private readonly stepIndex: number;
   private readonly totalSteps: number;
-  private readonly contentWidgets: { widget: Widget; baseY: number }[] = [];
+  private instruction!: Text;
+  private instructionPages: readonly string[] = [];
+  private pageIndex = 0;
   private readonly timerContainer: View;
   private readonly timerRows: TimerRow[] = [];
   private readonly progressDots: View[] = [];
@@ -59,7 +62,6 @@ export class CookingScreen extends BaseScreen {
   private readonly downHint: Image | null;
   private readonly askHint: Text;
   private modal: ModalRefs | null = null;
-  private scrollOffset = 0;
   private timerIds = "";
 
   constructor(parent: Widget, language: UiLanguage, state: AppState) {
@@ -170,7 +172,7 @@ export class CookingScreen extends BaseScreen {
     });
     panel.inner.setChildOverflowVisible(false);
 
-    const title = addText(panel.inner, {
+    addText(panel.inner, {
       x: 16,
       y: 10,
       width: 556,
@@ -181,52 +183,69 @@ export class CookingScreen extends BaseScreen {
       text: pick(this.step.title, this.language).toUpperCase(),
       wrap: false,
     });
-    const instruction = addText(panel.inner, {
+
+    // The instruction box is fixed; pick the largest readable size that fits
+    // (or split into pages). Vertical centring would clip both the first and
+    // the last line of an overflowing block, so the text is top-aligned too.
+    const layout = layoutInstruction(pick(this.step.instruction, this.language), {
+      width: 552,
+      height: 140,
+      sizes: [FONT_SIZE.display - 6, 34, 30, 27, 24, 22],
+      maxPages: 3,
+    });
+    this.instructionPages = layout.pages;
+    this.instruction = addText(panel.inner, {
       x: 16,
       y: 44,
       width: 552,
       height: 140,
-      size: FONT_SIZE.display - 6,
+      size: layout.size,
       bold: true,
-      text: pick(this.step.instruction, this.language),
+      align: TextAlign.TOP_LEFT,
+      text: layout.pages[0] ?? "",
       wrap: true,
     });
+
     const tipText = this.step.tip ? pick(this.step.tip, this.language) : "";
-    const tip = addText(panel.inner, {
+    const tip = fitTextBlock(tipText ? `${text("tipPrefix", this.language)} · ${tipText}` : "", {
+      width: 510,
+      height: 40,
+      sizes: [FONT_SIZE.small, FONT_SIZE.tiny, 12],
+    });
+    addText(panel.inner, {
       x: 16,
       y: 188,
-      width: 548,
+      width: 510,
       height: 40,
-      size: FONT_SIZE.small,
+      size: tip.size,
       color: COLORS.textMuted,
-      text: tipText ? `${text("tipPrefix", this.language)} · ${tipText}` : "",
+      align: TextAlign.TOP_LEFT,
+      text: tip.text,
       wrap: true,
     });
-    this.contentWidgets.push({ widget: title, baseY: 10 });
-    this.contentWidgets.push({ widget: instruction, baseY: 44 });
-    this.contentWidgets.push({ widget: tip, baseY: 188 });
     addIcon(panel.inner, this.step.icon, 548, 190, 28, { opacity: 0.9 });
   }
 
   update(state: AppState): void {
     if (this.progressDots.length > 0) this.progressDots[0]?.getValid();
-    this.updateScroll(state);
+    this.updateInstructionPage(state);
     this.updateTimers(state);
     this.updateModal(state);
-    if (state.cooking) {
-      this.upHint?.setHidden(state.cooking.scrollPage > 0 ? false : true);
-      this.downHint?.setHidden(state.cooking.scrollPage < 2);
-      this.askHint.setText(text("askHint", this.language));
-    }
+    if (state.cooking) this.askHint.setText(text("askHint", this.language));
   }
 
-  private updateScroll(state: AppState): void {
-    const page = state.cooking?.scrollPage ?? 0;
-    const target = page * 58;
-    this.scrollOffset += (target - this.scrollOffset) * 0.25;
-    if (Math.abs(target - this.scrollOffset) < 0.5) this.scrollOffset = target;
-    const offset = Math.round(this.scrollOffset);
-    for (const item of this.contentWidgets) item.widget.setPositionY(item.baseY - offset);
+  /** Map the up/down pager onto the instruction pages that did not fit at once. */
+  private updateInstructionPage(state: AppState): void {
+    const pageCount = this.instructionPages.length;
+    const requested = state.cooking?.scrollPage ?? 0;
+    const page = Math.min(requested, Math.max(0, pageCount - 1));
+    if (page !== this.pageIndex) {
+      this.pageIndex = page;
+      const next = this.instructionPages[page] ?? "";
+      if (this.instruction.getText() !== next) this.instruction.setText(next);
+    }
+    this.upHint?.setHidden(pageCount <= 1 || page <= 0);
+    this.downHint?.setHidden(pageCount <= 1 || page >= pageCount - 1);
   }
 
   private updateTimers(state: AppState): void {

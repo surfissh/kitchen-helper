@@ -157,7 +157,7 @@ app-src/index.ts ──tsc --noEmit──> 类型检查
 | ---------------------------------------------- | ----------------------------------------------- |
 | `ivt doctor`                                   | pass（host override active，Node/npm 精确匹配） |
 | `ivt build apps/kitchen-helper`                | pass（类型检查 + 138.9 KiB CJS bundle）         |
-| `ivt test apps/kitchen-helper`                 | pass（6 个测试文件、43 个测试用例 + SDK 校验）  |
+| `ivt test apps/kitchen-helper`                 | pass（9 个测试文件、61 个测试用例 + SDK 校验）  |
 | `ivt package apps/kitchen-helper`              | pass（`.fuiapp`，debug-unsigned，309.5 KiB）    |
 | `ivt verify <artifact> --allow-debug-unsigned` | pass（结构与信任关系校验）                      |
 | `ivt smoke apps/kitchen-helper`                | pass（`IrisView application frame 1`）          |
@@ -168,7 +168,7 @@ app-src/index.ts ──tsc --noEmit──> 类型检查
 
 ```text
 KITCHEN_HELPER_DATA_DIR {"path":".../sim-state/applications/data/com.example.kitchenhelper"}
-KITCHEN_HELPER_LLM_KEY {"source":"file","file":".../deepseek-key.txt","model":"deepseek-chat"}
+KITCHEN_HELPER_LLM_KEY {"source":"file","file":".../deepseek-key.txt","model":"deepseek-flash"}
 KITCHEN_HELPER_LIFECYCLE {"lifecycle":0}
 KITCHEN_HELPER_READY {"language":"zh","navigation":true,"completed":0}
 KITCHEN_HELPER_TEXT {"text":"番茄炒蛋","screen":"home"}

@@ -8,8 +8,11 @@
 
 import {
   DEEPSEEK_API_BASE,
+  DEEPSEEK_ASSISTANT_MAX_TOKENS,
+  DEEPSEEK_ASSISTANT_TIMEOUT_MS,
   DEEPSEEK_MODEL,
-  DEEPSEEK_TIMEOUT_MS,
+  DEEPSEEK_STRUCTURE_MAX_TOKENS,
+  DEEPSEEK_STRUCTURE_TIMEOUT_MS,
   resolveDeepSeekKey,
 } from "../config.ts";
 import type {
@@ -67,7 +70,10 @@ interface ChatMessage {
 }
 
 interface ChatResponse {
-  readonly choices?: readonly { readonly message?: { readonly content?: string } }[];
+  readonly choices?: readonly {
+    readonly finish_reason?: string;
+    readonly message?: { readonly content?: string | null };
+  }[];
   readonly error?: { readonly message?: string };
 }
 
@@ -99,7 +105,8 @@ Rules:
 - Chinese is the primary language; provide natural concise English translations for every zh field.
 - ingredients: only edible ingredients and seasonings. cookware: pots, pans, knives, boards, bowls, utensils.
 - Split the source into 4-10 cooking steps that a beginner can follow one action at a time.
-- instructionZh must be one clear action, at most 60 Chinese characters. Move side notes to tipZh.
+- instructionZh must be one clear action, at most 40 Chinese characters (it is rendered on a small AR HUD); aim for two short lines. Move side notes, warnings and "why" explanations to tipZh.
+- tipZh must be at most 24 Chinese characters (optional).
 - durationSeconds is only for an explicit timed wait in the source (e.g. "翻炒 20 秒", "炖 40 分钟"); null otherwise.
 - timers: usually empty. Add a timer only for an explicit duration in that step. Each timer needs its own clear label.
 - heat: 0 no flame, 1 low, 2 medium, 3 high. Use 0 for washing/cutting/mixing/plating.
@@ -343,10 +350,29 @@ export function normalizeStructuredRecipe(payload: unknown, context: StructureCo
   };
 }
 
-async function chat(
-  messages: readonly ChatMessage[],
-  options: { json: boolean; temperature: number },
-): Promise<string> {
+interface ChatOptions {
+  readonly json: boolean;
+  readonly temperature: number;
+  readonly maxTokens: number;
+  readonly timeoutMs: number;
+}
+
+/**
+ * Failures worth one more request. DeepSeek's JSON Output mode replaces a
+ * non-JSON payload (for example a payload cut off by the token budget) with
+ * spaces, so `content` can look empty even though the request succeeded; the
+ * API docs recommend retrying such blanks.
+ */
+function isRetryableLlmFailure(error: unknown): boolean {
+  if (!(error instanceof RecipePipelineError)) return false;
+  return (
+    error.detail === "empty-response" ||
+    error.detail === "truncated" ||
+    error.detail === "invalid-json"
+  );
+}
+
+async function chat(messages: readonly ChatMessage[], options: ChatOptions): Promise<string> {
   const key = resolveDeepSeekKey();
   if (!key) {
     throw new RecipePipelineError("llm", "DeepSeek API key is not configured", "missing-key");
@@ -354,15 +380,19 @@ async function chat(
   const body: Record<string, unknown> = {
     model: DEEPSEEK_MODEL,
     messages,
+    // Structuring and Q&A are faithful conversion tasks: reasoning tokens only
+    // eat the output budget and longer recipes then truncate. Thinking mode is
+    // on by default for the current models, so disable it explicitly.
+    thinking: { type: "disabled" },
     temperature: options.temperature,
-    max_tokens: 4_096,
+    max_tokens: options.maxTokens,
     stream: false,
   };
   if (options.json) body.response_format = { type: "json_object" };
   let payload: ChatResponse;
   try {
     payload = await postJson<ChatResponse>(`${DEEPSEEK_API_BASE}/chat/completions`, body, {
-      timeoutMs: DEEPSEEK_TIMEOUT_MS,
+      timeoutMs: options.timeoutMs,
       headers: { Authorization: `Bearer ${key}` },
     });
   } catch (error) {
@@ -376,8 +406,25 @@ async function chat(
       payload.error.message,
     );
   }
-  const content = payload.choices?.[0]?.message?.content;
+  const choice = payload.choices?.[0];
+  if (choice?.finish_reason === "length") {
+    throw new RecipePipelineError(
+      "llm",
+      "DeepSeek output was truncated before the JSON was complete",
+      "truncated",
+    );
+  }
+  if (choice?.finish_reason && choice.finish_reason !== "stop") {
+    throw new RecipePipelineError(
+      "llm",
+      `DeepSeek stopped generating early (finish_reason=${choice.finish_reason})`,
+      choice.finish_reason,
+    );
+  }
+  const content = choice?.message?.content;
   if (!content || !content.trim()) {
+    // JSON Output mode may return only spaces for a payload it could not
+    // validate; the caller retries once and then falls back to the local parser.
     throw new RecipePipelineError("llm", "DeepSeek returned an empty response", "empty-response");
   }
   return content;
@@ -388,8 +435,7 @@ export interface StructureInput {
   readonly context: StructureContext;
 }
 
-/** Structure a recipe with DeepSeek. Throws a pipeline error on failure. */
-export async function structureRecipeWithDeepSeek(input: StructureInput): Promise<Recipe> {
+async function structureRecipeOnce(input: StructureInput): Promise<Recipe> {
   const source = input.sourceText.slice(0, 9_000);
   const userPrompt = [
     `Dish hint: ${input.context.titleHint}`,
@@ -403,10 +449,33 @@ export async function structureRecipeWithDeepSeek(input: StructureInput): Promis
       { role: "system", content: STRUCTURE_SYSTEM_PROMPT },
       { role: "user", content: userPrompt },
     ],
-    { json: true, temperature: 0.2 },
+    {
+      json: true,
+      temperature: 0.2,
+      maxTokens: DEEPSEEK_STRUCTURE_MAX_TOKENS,
+      timeoutMs: DEEPSEEK_STRUCTURE_TIMEOUT_MS,
+    },
   );
-  const payload = parseJsonObject(content);
+  let payload: unknown;
+  try {
+    payload = parseJsonObject(content);
+  } catch {
+    throw new RecipePipelineError("invalid", "DeepSeek returned unparsable JSON", "invalid-json");
+  }
   return normalizeStructuredRecipe(payload, input.context);
+}
+
+/**
+ * Structure a recipe with DeepSeek. Throws a pipeline error on failure; the
+ * service layer then falls back to the offline snapshot or the local parser.
+ */
+export async function structureRecipeWithDeepSeek(input: StructureInput): Promise<Recipe> {
+  try {
+    return await structureRecipeOnce(input);
+  } catch (error) {
+    if (!isRetryableLlmFailure(error)) throw error;
+    return structureRecipeOnce(input);
+  }
 }
 
 const ASSISTANT_SYSTEM_PROMPT = `You are a patient kitchen coach inside AR glasses, helping a total beginner cook one dish.
@@ -415,7 +484,7 @@ Be specific to the current step, safety-first, and encouraging. Do not use Markd
 Return strict JSON: {"answerZh": string, "answerEn": string}.`;
 
 /** Ask DeepSeek a contextual cooking question; returns a bilingual answer. */
-export async function askDeepSeekAssistant(
+async function askDeepSeekAssistantOnce(
   question: string,
   recipe: Recipe,
   step: RecipeStep,
@@ -434,9 +503,19 @@ export async function askDeepSeekAssistant(
       { role: "system", content: ASSISTANT_SYSTEM_PROMPT },
       { role: "user", content: context },
     ],
-    { json: true, temperature: 0.4 },
+    {
+      json: true,
+      temperature: 0.4,
+      maxTokens: DEEPSEEK_ASSISTANT_MAX_TOKENS,
+      timeoutMs: DEEPSEEK_ASSISTANT_TIMEOUT_MS,
+    },
   );
-  const payload = parseJsonObject(content);
+  let payload: unknown;
+  try {
+    payload = parseJsonObject(content);
+  } catch {
+    throw new RecipePipelineError("llm", "assistant returned unparsable JSON", "invalid-json");
+  }
   if (!payload || typeof payload !== "object") {
     throw new RecipePipelineError("llm", "assistant returned no JSON", "assistant");
   }
@@ -447,6 +526,21 @@ export async function askDeepSeekAssistant(
     throw new RecipePipelineError("llm", "assistant returned an empty answer", "assistant");
   }
   return { zh: answerZh || answerEn, en: answerEn || answerZh };
+}
+
+/** Ask DeepSeek a contextual cooking question; callers fall back to local tips. */
+export async function askDeepSeekAssistant(
+  question: string,
+  recipe: Recipe,
+  step: RecipeStep,
+  language: "zh" | "en",
+): Promise<Localized> {
+  try {
+    return await askDeepSeekAssistantOnce(question, recipe, step, language);
+  } catch (error) {
+    if (!isRetryableLlmFailure(error)) throw error;
+    return askDeepSeekAssistantOnce(question, recipe, step, language);
+  }
 }
 
 /** Offline answers keyed by common beginner questions. */

@@ -19,9 +19,26 @@ export interface FetchOptions {
   readonly body?: string;
 }
 
-async function request(url: string, options: FetchOptions = {}): Promise<Response> {
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && (error.name === "AbortError" || error.name === "TimeoutError");
+}
+
+/**
+ * Run one request and consume its body under a single deadline.
+ *
+ * The timeout must stay armed while the body is read: a non-streaming chat
+ * completion arrives as one body that is produced by the model after the
+ * response headers, so clearing the timer on headers alone would leave the
+ * actual generation unbounded.
+ */
+async function request<T>(
+  url: string,
+  options: FetchOptions,
+  consume: (response: Response) => Promise<T>,
+): Promise<T> {
+  const timeoutMs = options.timeoutMs ?? 12_000;
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), options.timeoutMs ?? 12_000);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetch(url, {
       method: options.method ?? "GET",
@@ -35,27 +52,25 @@ async function request(url: string, options: FetchOptions = {}): Promise<Respons
     if (!response.ok) {
       throw new HttpError(`HTTP ${response.status} for ${url}`, url, response.status);
     }
-    return response;
+    return await consume(response);
   } catch (error) {
     if (error instanceof HttpError) throw error;
-    if (error instanceof Error && error.name === "AbortError") {
-      throw new HttpError(`request timed out after ${options.timeoutMs ?? 12_000} ms`, url);
+    if (isAbortError(error)) {
+      throw new HttpError(`request timed out after ${timeoutMs} ms`, url);
     }
     const reason = error instanceof Error ? error.message : String(error);
     throw new HttpError(`network request failed: ${reason}`, url);
   } finally {
-    clearTimeout(timeout);
+    clearTimeout(timer);
   }
 }
 
 export async function fetchText(url: string, options: FetchOptions = {}): Promise<string> {
-  const response = await request(url, options);
-  return response.text();
+  return request(url, options, (response) => response.text());
 }
 
 export async function fetchJson<T>(url: string, options: FetchOptions = {}): Promise<T> {
-  const response = await request(url, options);
-  return (await response.json()) as T;
+  return request(url, options, async (response) => (await response.json()) as T);
 }
 
 export async function postJson<T>(
@@ -63,16 +78,19 @@ export async function postJson<T>(
   body: unknown,
   options: FetchOptions = {},
 ): Promise<T> {
-  const response = await request(url, {
-    ...options,
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers,
+  return request(
+    url,
+    {
+      ...options,
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...options.headers,
+      },
+      body: JSON.stringify(body),
     },
-    body: JSON.stringify(body),
-  });
-  return (await response.json()) as T;
+    async (response) => (await response.json()) as T,
+  );
 }
 
 export function decodeHtmlEntities(input: string): string {

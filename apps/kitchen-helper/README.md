@@ -91,7 +91,7 @@ The first run prints the exact file to create:
 
 ```text
 KITCHEN_HELPER_DATA_DIR {"path":".../sim-state/applications/data/com.example.kitchenhelper"}
-KITCHEN_HELPER_LLM_KEY {"source":"none","file":".../applications/data/com.example.kitchenhelper/deepseek-key.txt","model":"deepseek-chat"}
+KITCHEN_HELPER_LLM_KEY {"source":"none","file":".../applications/data/com.example.kitchenhelper/deepseek-key.txt","model":"deepseek-flash"}
 ```
 
 The app seeds that `deepseek-key.txt` with a comment template when it is missing. Paste
@@ -102,6 +102,11 @@ development placeholder for quick experiments. `sim-state/` is git-ignored.
 
 Without a key the app still works: the recipe header says “本地解析（未配置 Key）” and the
 cooking modal answers from a local tip library.
+
+DeepSeek calls run with thinking mode disabled and explicit budgets (90 s / 8K tokens for
+structuring, 30 s / 1K for Q&A). The timeout covers the generated body, and a blank JSON
+Output payload, a `finish_reason=length` truncation or unparsable JSON is retried once before
+the pipeline falls back to the offline snapshot / local parser.
 
 > ⚠️ A key embedded in a `.fuiapp` (for example via `app-src/config.ts`) is readable by
 > anyone with the package. The runtime key file never enters the package; production must
@@ -165,7 +170,7 @@ the Client. `src/index.js` is generated — do not edit it by hand.
 
 ## Testing
 
-`node packages/toolchain/src/cli.ts test apps/kitchen-helper` runs 6 test files (43 tests):
+`node packages/toolchain/src/cli.ts test apps/kitchen-helper` runs 9 test files (61 tests):
 
 - home → listening → loading → recipe → prep → cooking → done/error transitions;
 - confirm-vs-timer priority and overlapping timers across steps;

@@ -48,7 +48,7 @@ HowToCook + DeepSeek 流水线在断网或没有 API Key 时如何降级。
 | 来源       | 动作             | 首页         | 准备页                       | 步骤页                 |
 | ---------- | ---------------- | ------------ | ---------------------------- | ---------------------- |
 | 眼镜腿点按 | `activate`       | 进入聆听     | 标记已备好；全备好后开始做菜 | 开始倒计时，否则下一步 |
-| 眼镜腿滑动 | `up` / `down`    | —            | 切换原料 / 厨具行            | 滚动步骤内容           |
+| 眼镜腿滑动 | `up` / `down`    | —            | 切换原料 / 厨具行            | 翻步骤说明页           |
 | 眼镜腿滑动 | `left` / `right` | 切换推荐高亮 | 左右移动卡片焦点             | 下一步 / 上一步        |
 | 返回手势   | `back`           | —            | 返回菜谱页                   | 返回菜谱页             |
 | 输入框     | 命令词           | 同上         | 同上                         | 同上                   |
@@ -67,7 +67,8 @@ HowToCook + DeepSeek 流水线在断网或没有 API Key 时如何降级。
 - 计时器属于烹饪状态而不是某个页面，所以切换步骤时继续运行。`visibleTimers()` 返回所有
   已启动的计时器加上当前步骤未开始的计时器，纵向排列成进度条。
 - 进度由 reducer 时钟驱动。计时结束后变为完成态、转绿，并保留标签与时间直到完成做菜。
-- 步骤页滚动使用 0–2 页索引；上下滑切换页面，渲染器平滑移动内容位置。
+- 步骤说明复用 0–2 页索引作为分页：短说明自动适配成单页，长说明拆成最多三页，上下滑翻页
+  （渲染器直接切换文字，不移动内容位置）。
 
 ## 准备页焦点规则
 
@@ -184,20 +185,25 @@ base64 解码，不依赖 `raw.githubusercontent.com` 直连。
   且不再接受输入。因此首页推荐区改成两个固定卡片槽位，轮播时只替换文字、图标与强调色，
   不做任何位移动画；焦点只用颜色表达。几何始终不变的 widget 使用样式或 opacity 动画是
   安全的，`ui/anim.ts` 就负责这类效果。
+- 步骤说明文字会自动适配固定面板（`ui/instruction-layout.ts`）：本地估算字形宽度与换行，
+  选用能放下的最大可读字号；更长的文字用上/下翻页（最多三页）。换行遵循基本 CJK 禁则
+  （收尾标点不会出现在行首），也不会拆开 `100g` 这类拉丁 token；结构化提示词把
+  `instructionZh` 限制在 40 字以内，让大多数步骤单页可读。
 - 图标由 `tools/generate-icons.py` 生成 PNG，放在 `src/assets/icons`；打包后通过
   `__dirname`（打包后的 `src/` 目录）解析路径。
 - 零宽度原生 View 同样会让首帧无法呈现，因此进度条填充宽度最小为 1。
 
 ## 配置与密钥
 
-| 配置                     | 位置                                                    |
-| ------------------------ | ------------------------------------------------------- |
-| DeepSeek Key（推荐）     | 模拟器状态目录下、应用私有目录里的 `deepseek-key.txt`   |
-| DeepSeek Key（CI/覆盖）  | `DEEPSEEK_API_KEY` 环境变量（优先于文件）               |
-| DeepSeek Key（开发占位） | `app-src/config.ts` 占位符（会被打包进 bundle，不推荐） |
-| DeepSeek 地址/模型/超时  | `app-src/config.ts`                                     |
-| HowToCook 站点/仓库/超时 | `app-src/config.ts`                                     |
-| 应用身份与能力           | `FusionUIApp.json`                                      |
+| 配置                     | 位置                                                                |
+| ------------------------ | ------------------------------------------------------------------- |
+| DeepSeek Key（推荐）     | 模拟器状态目录下、应用私有目录里的 `deepseek-key.txt`               |
+| DeepSeek Key（CI/覆盖）  | `DEEPSEEK_API_KEY` 环境变量（优先于文件）                           |
+| DeepSeek Key（开发占位） | `app-src/config.ts` 占位符（会被打包进 bundle，不推荐）             |
+| DeepSeek 地址/模型       | `app-src/config.ts`（`deepseek-flash`、`https://api.deepseek.com`） |
+| DeepSeek 请求预算        | `app-src/config.ts`（`*_TIMEOUT_MS`、`*_MAX_TOKENS`）               |
+| HowToCook 站点/仓库/超时 | `app-src/config.ts`                                                 |
+| 应用身份与能力           | `FusionUIApp.json`                                                  |
 
 `FusionUIApp.json` 声明 `input.navigation` 与 `input.text`，`minimumHostVersion: 2`。
 
@@ -215,7 +221,7 @@ base64 解码，不依赖 `raw.githubusercontent.com` 直连。
 
 ```text
 KITCHEN_HELPER_DATA_DIR {"path":".../apps/kitchen-helper/sim-state/applications/data/com.example.kitchenhelper"}
-KITCHEN_HELPER_LLM_KEY {"source":"file","file":".../applications/data/com.example.kitchenhelper/deepseek-key.txt","model":"deepseek-chat"}
+KITCHEN_HELPER_LLM_KEY {"source":"file","file":".../applications/data/com.example.kitchenhelper/deepseek-key.txt","model":"deepseek-flash"}
 ```
 
 应用首次运行会自动生成带注释模板的 `deepseek-key.txt`。把 Key 粘贴进去
@@ -223,11 +229,21 @@ KITCHEN_HELPER_LLM_KEY {"source":"file","file":".../applications/data/com.exampl
 读取，不会被打进 `.fuiapp`。该文件位于 `sim-state/` 下（已被 git 忽略）。打进 `.fuiapp`
 的 Key 对拿到安装包的人可见，生产环境仍应通过后端代理下发短期令牌。
 
+### LLM 请求行为
+
+- 结构化与问答都**关闭思考模式**（`thinking: {"type": "disabled"}`）。新版 DeepSeek 模型默认
+  开启思考，思考 token 同样计入 `max_tokens`，长菜谱会在可见 JSON 输出前被思考耗尽预算。
+- 请求预算：结构化 90 秒 / 8 192 tokens，助手问答 30 秒 / 1 024 tokens；HTTP 超时在读取响应体
+  期间保持有效，约束的是生成过程而不只是响应头。
+- DeepSeek JSON Output 会把无法识别的载荷替换成空格，被截断或拒绝的载荷看起来就是“空响应”。
+  适配层会对空载荷、`finish_reason=length` 截断、无法解析的 JSON 各重试一次；仍失败时由
+  service 降级到内置快照或本地确定性解析器，而不是直接让流程失败。
+
 ## 验证结果
 
 | 检查项                            | 结果                                                                   |
 | --------------------------------- | ---------------------------------------------------------------------- |
-| `ivt test apps/kitchen-helper`    | 通过 — 6 个测试文件、43 个测试用例（状态机、解析器、LLM 归一化、降级） |
+| `ivt test apps/kitchen-helper`    | 通过 — 9 个测试文件、61 个测试用例（状态机、解析器、LLM 归一化、降级） |
 | `ivt package apps/kitchen-helper` | 通过 — `.fuiapp`，debug-unsigned                                       |
 | `ivt smoke apps/kitchen-helper`   | 通过 — `IrisView application frame 1`                                  |
 | 文字注入 `番茄炒蛋`               | 通过 — 实时搜索 + 本地结构化 → 菜谱页                                  |

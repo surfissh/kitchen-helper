@@ -31,11 +31,24 @@ export const DEEPSEEK_API_KEY = "";
 /** DeepSeek OpenAI-compatible endpoint; override only for a compatible proxy. */
 export const DEEPSEEK_API_BASE = "https://api.deepseek.com";
 
-/** `deepseek-chat` is fast and good enough for recipe structuring. */
+/** `deepseek-flash` is fast and good enough for recipe structuring. */
 export const DEEPSEEK_MODEL = "deepseek-flash";
 
-/** Network budget for one chat completion, in milliseconds. */
-export const DEEPSEEK_TIMEOUT_MS = 45_000;
+/**
+ * Per-request network budget covering headers *and* the generated body.
+ * Non-streaming chat completions deliver the body after generation, so the
+ * timeout must be large enough for a long recipe to finish.
+ */
+export const DEEPSEEK_STRUCTURE_TIMEOUT_MS = 90_000;
+export const DEEPSEEK_ASSISTANT_TIMEOUT_MS = 30_000;
+
+/**
+ * Output budget. The structuring prompt asks for a large bilingual JSON object;
+ * the API's default 4K is easily exhausted (and JSON Output then blanks a
+ * truncated payload, which used to surface as an "empty-response" error).
+ */
+export const DEEPSEEK_STRUCTURE_MAX_TOKENS = 8_192;
+export const DEEPSEEK_ASSISTANT_MAX_TOKENS = 1_024;
 
 /** HowToCook public site and repository. */
 export const HOWTOCOOK_SITE = "https://howtocook.aiursoft.com";
