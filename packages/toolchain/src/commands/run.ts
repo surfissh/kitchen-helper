@@ -48,6 +48,7 @@ export async function runCommand(context: Context, options: RunOptions): Promise
   if (options.allowDebugReplace) args.push("--allow-debug-replace");
 
   if (options.dryRun) {
+    args.push("--dry-run");
     const plan = await runSdk<Record<string, unknown>>(args, {
       kitRoot: context.kitRoot,
       cwd: process.cwd(),

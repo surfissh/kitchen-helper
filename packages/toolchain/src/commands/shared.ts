@@ -98,7 +98,12 @@ export function displayAvailable(): { available: boolean; detail: string } {
 }
 
 export function xvfbAvailable(): boolean {
-  const result = runOnce("xvfb-run", ["--help"], { allowFailure: true });
+  // `xvfb-run` may be installed while Xvfb itself cannot start (for example in
+  // a restricted sandbox), so probe with a command that needs the display.
+  const result = runOnce("xvfb-run", ["-a", "xdpyinfo"], {
+    allowFailure: true,
+    timeoutMs: 15_000,
+  });
   return result.code === 0;
 }
 

@@ -1,6 +1,6 @@
 import { runSdk } from "../sdk.ts";
 import { log } from "../util.ts";
-import { ensureRuntimeReady, type Context } from "./shared.ts";
+import type { Context } from "./shared.ts";
 
 export type StateAction = "path" | "status" | "reset" | "adopt";
 
@@ -30,13 +30,3 @@ export async function stateCommand(context: Context, options: StateOptions): Pro
   log.plain(JSON.stringify(result, null, 2));
   return 0;
 }
-
-export function stateSummary(context: Context): Record<string, unknown> {
-  return {
-    kitRoot: context.kitRoot,
-    stateRoot: context.stateRoot,
-    profile: "release",
-  };
-}
-
-export { ensureRuntimeReady };

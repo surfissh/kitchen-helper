@@ -31,15 +31,11 @@ export default defineConfig({
     include: ["packages/toolchain/tests/**/*.test.ts"],
   },
   run: {
+    // package.json owns the developer-facing scripts; Vite Task adds the
+    // operations that have no script equivalent.
     tasks: {
-      "toolchain:check": "tsc -p packages/toolchain/tsconfig.json",
-      "toolchain:test": "vp test packages/toolchain/tests",
-      doctor: "node packages/toolchain/src/cli.ts doctor",
-      "app:build": "node packages/toolchain/src/cli.ts build apps/kitchen-helper",
-      "app:test": "node packages/toolchain/src/cli.ts test apps/kitchen-helper",
-      "app:package": "node packages/toolchain/src/cli.ts package apps/kitchen-helper",
-      "app:run": "node packages/toolchain/src/cli.ts run --latest --project apps/kitchen-helper",
-      "app:smoke": "node packages/toolchain/src/cli.ts smoke apps/kitchen-helper",
+      "sim:smoke": "node packages/toolchain/src/cli.ts smoke apps/kitchen-helper",
+      "kit:repair": "node packages/toolchain/src/cli.ts doctor --fix",
     },
   },
 });

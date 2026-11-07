@@ -9,7 +9,7 @@ import {
   sha256File,
   writeIfChanged,
 } from "../src/util.ts";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 
 describe("parseFlags", () => {
@@ -27,12 +27,19 @@ describe("parseFlags", () => {
     expect(flagList(parsed, "trusted-key")).toEqual(["a=1", "b=2"]);
   });
 
-  it("supports --name=value and aliases", () => {
-    const parsed = parseFlags(["--profile=diagnostic", "-p", "demo"], {
+  it("supports --name=value", () => {
+    const parsed = parseFlags(["--profile=diagnostic", "demo"], {
       profile: { type: "string", description: "", alias: "p" },
     });
     expect(flagString(parsed, "profile")).toBe("diagnostic");
     expect(parsed.positionals).toEqual(["demo"]);
+  });
+
+  it("supports short aliases", () => {
+    const parsed = parseFlags(["-p", "release"], {
+      profile: { type: "string", description: "", alias: "p" },
+    });
+    expect(flagString(parsed, "profile")).toBe("release");
   });
 
   it("rejects unknown flags", () => {
@@ -48,11 +55,13 @@ describe("hashing", () => {
   });
 
   it("hashes a file and rewrites only when content changes", () => {
-    const path = join(process.cwd(), ".state", "cache", "test-write.txt");
+    const path = join(process.cwd(), ".state", "cache", `test-write-${Date.now()}.txt`);
+    rmSync(path, { force: true });
     expect(writeIfChanged(path, "first")).toBe(true);
     expect(writeIfChanged(path, "first")).toBe(false);
     expect(readFileSync(path, "utf8")).toBe("first");
     expect(sha256File(path)).toBe(sha256Bytes("first"));
     expect(existsSync(path)).toBe(true);
+    rmSync(path, { force: true });
   });
 });

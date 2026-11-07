@@ -150,6 +150,7 @@ const COMMANDS: Record<string, CommandDefinition> = {
       const parsed = parseCommandFlags(
         args,
         specs({
+          fix: { type: "boolean", description: "repair stale Kit integrity metadata (default)" },
           "no-fix": { type: "boolean", description: "report stale Kit metadata without repairing" },
           project: { type: "string", description: "optional application project to validate" },
         }),
@@ -161,7 +162,7 @@ const COMMANDS: Record<string, CommandDefinition> = {
       const project = flagString(parsed, "project") ?? parsed.positionals[0];
       return doctorCommand(context, {
         project,
-        fix: !flagBoolean(parsed, "no-fix"),
+        fix: flagBoolean(parsed, "fix") || !flagBoolean(parsed, "no-fix"),
         json: globals.json,
       });
     },
