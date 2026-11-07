@@ -1,3 +1,6 @@
+import { existsSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { sha256File } from "../util.ts";
 import { buildProject } from "../build.ts";
 import { findProject } from "../project.ts";
@@ -20,8 +23,31 @@ export interface RunOptions {
   displayMode: "mono" | "stereo";
   audioMode: "desktop" | "silent";
   port: number;
+  /** Isolated simulator state directory; unset means the Kit's shared state. */
+  stateDir?: string;
   allowDebugReplace: boolean;
   dryRun: boolean;
+}
+
+/** Append the optional isolated state directory to an SDK `run` argument list. */
+function appendStateDir(args: string[], options: RunOptions): void {
+  if (options.stateDir) args.push("--state-dir", options.stateDir);
+}
+
+/**
+ * Prepare an isolated state directory before the SDK starts a session.
+ *
+ * The Client runs the installed CommonJS `code/index.js` from inside this
+ * directory. When the directory lives inside a project whose package.json says
+ * `"type": "module"`, Node would treat that entry as ESM and fail with
+ * `require is not defined in ES module scope`; a `{"type":"commonjs"}` marker
+ * at the state root keeps the installed application in CommonJS scope, exactly
+ * like the toolchain's own `.state/simulator` directory.
+ */
+function prepareStateDirectory(directory: string): void {
+  ensureDir(directory);
+  const marker = join(directory, "package.json");
+  if (!existsSync(marker)) writeFileSync(marker, '{"type": "commonjs"}\n');
 }
 
 export async function runCommand(context: Context, options: RunOptions): Promise<number> {
@@ -45,6 +71,7 @@ export async function runCommand(context: Context, options: RunOptions): Promise
     String(options.port),
     "--allow-debug-unsigned",
   );
+  appendStateDir(args, options);
   if (options.allowDebugReplace) args.push("--allow-debug-replace");
 
   if (options.dryRun) {
@@ -62,6 +89,10 @@ export async function runCommand(context: Context, options: RunOptions): Promise
       `audio ${options.audioMode}, port ${options.port})`,
   );
   if (packagePath) log.info(`package: ${packagePath}`);
+  if (options.stateDir) {
+    prepareStateDirectory(options.stateDir);
+    log.info(`state directory: ${options.stateDir}`);
+  }
   log.info("close the Client window or press Ctrl+C to end the session");
   const code = await runSdkPassthrough(args, { kitRoot: context.kitRoot, cwd: process.cwd() });
   if (code !== 0 && code !== 130) {
@@ -116,7 +147,10 @@ export async function devCommand(
     // the Developer Kit allows this explicit local-development replacement.
     "--allow-debug-replace",
   ];
+  appendStateDir(args, options);
+  if (options.stateDir) prepareStateDirectory(options.stateDir);
   log.step("starting simulator session (close the Client window or press Ctrl+C to stop)");
+  if (options.stateDir) log.info(`state directory: ${options.stateDir}`);
   const code = await runSdkPassthrough(args, { kitRoot: context.kitRoot, cwd: project.root });
   if (code !== 0 && code !== 130) {
     throw new CliError(`IrisView session exited with status ${code}`, code);

@@ -64,7 +64,9 @@ node packages/toolchain/src/cli.ts test apps/kitchen-helper
 node packages/toolchain/src/cli.ts package apps/kitchen-helper
 
 # 3. 在模拟器中运行（关闭 Client 窗口或 Ctrl+C 结束）
-node packages/toolchain/src/cli.ts run --latest --project apps/kitchen-helper
+#    --state-dir 把整套隔离状态（含应用私有数据）放进项目目录
+node packages/toolchain/src/cli.ts run --latest --project apps/kitchen-helper \
+  --state-dir apps/kitchen-helper/sim-state
 
 # 4. 无人值守端到端验收：等待模拟器呈现第一帧
 node packages/toolchain/src/cli.ts smoke apps/kitchen-helper
@@ -80,6 +82,12 @@ vp run app:run
 vp run sim:smoke        # 端到端验收
 vp run kit:repair       # 强制修复 Kit 哈希元数据
 ```
+
+`--state-dir` 按平台文档《模拟器数据区域的指定与读取》隔离整套模拟器状态；应用侧只通过
+Host 提供的 `FUSIONUI_APP_DATA_DIR` 访问自己的私有目录。Kitchen Helper 的 DeepSeek Key
+就放在该私有目录的 `deepseek-key.txt`（首次运行日志会打印 `KITCHEN_HELPER_DATA_DIR` /
+`KITCHEN_HELPER_LLM_KEY` 指向的路径），运行时读取、不进入 `.fuiapp`；`sim-state/` 已被
+git 忽略。`vp run app:run` 已默认带上该 `--state-dir`。
 
 创建一个新项目：
 
@@ -149,7 +157,7 @@ app-src/index.ts ──tsc --noEmit──> 类型检查
 | ---------------------------------------------- | ----------------------------------------------- |
 | `ivt doctor`                                   | pass（host override active，Node/npm 精确匹配） |
 | `ivt build apps/kitchen-helper`                | pass（类型检查 + 138.9 KiB CJS bundle）         |
-| `ivt test apps/kitchen-helper`                 | pass（5 个测试文件、36 条断言 + SDK 源码校验）  |
+| `ivt test apps/kitchen-helper`                 | pass（6 个测试文件、43 个测试用例 + SDK 校验）  |
 | `ivt package apps/kitchen-helper`              | pass（`.fuiapp`，debug-unsigned，309.5 KiB）    |
 | `ivt verify <artifact> --allow-debug-unsigned` | pass（结构与信任关系校验）                      |
 | `ivt smoke apps/kitchen-helper`                | pass（`IrisView application frame 1`）          |
@@ -159,6 +167,8 @@ app-src/index.ts ──tsc --noEmit──> 类型检查
 示例应用运行日志（模拟器侧）：
 
 ```text
+KITCHEN_HELPER_DATA_DIR {"path":".../sim-state/applications/data/com.example.kitchenhelper"}
+KITCHEN_HELPER_LLM_KEY {"source":"file","file":".../deepseek-key.txt","model":"deepseek-chat"}
 KITCHEN_HELPER_LIFECYCLE {"lifecycle":0}
 KITCHEN_HELPER_READY {"language":"zh","navigation":true,"completed":0}
 KITCHEN_HELPER_TEXT {"text":"番茄炒蛋","screen":"home"}

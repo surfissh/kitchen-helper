@@ -79,20 +79,33 @@ prep cards → cooking steps + timers → done
 - Three beginner recipes (番茄炒蛋 / 可乐鸡翅 / 酸辣土豆丝) are embedded as fully structured
   snapshots so the demo works offline.
 
-## DeepSeek API key
+## DeepSeek API key and the state directory
 
-Paste the key in [`app-src/config.ts`](app-src/config.ts) or export `DEEPSEEK_API_KEY`
-before launching the simulator. The environment variable wins.
+The key is read **at runtime** from the application's private data directory, never from the
+bundle. `vp run app:run` starts the simulator with a project-local isolated state directory
+(`--state-dir apps/kitchen-helper/sim-state`). Per the platform guide, the app never parses
+`--state-dir`; it only addresses its own data through `FUSIONUI_APP_DATA_DIR`, wrapped by
+[`app-src/application-data.ts`](app-src/application-data.ts).
 
-```ts
-export const DEEPSEEK_API_KEY = ""; // TODO: paste sk-...
+The first run prints the exact file to create:
+
+```text
+KITCHEN_HELPER_DATA_DIR {"path":".../sim-state/applications/data/com.example.kitchenhelper"}
+KITCHEN_HELPER_LLM_KEY {"source":"none","file":".../applications/data/com.example.kitchenhelper/deepseek-key.txt","model":"deepseek-chat"}
 ```
 
-Without a key the app still works: the header on the recipe screen says
-“本地解析（未配置 Key）” and answers in the cooking modal come from a local tip library.
+The app seeds that `deepseek-key.txt` with a comment template when it is missing. Paste
+`sk-...` into it (blank lines and `#` comments are ignored) and
+restart the app; `KITCHEN_HELPER_LLM_KEY` then reports `"source":"file"`. When set, the
+`DEEPSEEK_API_KEY` environment variable still wins, and `app-src/config.ts` keeps a
+development placeholder for quick experiments. `sim-state/` is git-ignored.
 
-> ⚠️ A key embedded in a `.fuiapp` is readable by anyone with the package. This placeholder
-> is for local MVP testing; production must proxy short-lived tokens through a backend.
+Without a key the app still works: the recipe header says “本地解析（未配置 Key）” and the
+cooking modal answers from a local tip library.
+
+> ⚠️ A key embedded in a `.fuiapp` (for example via `app-src/config.ts`) is readable by
+> anyone with the package. The runtime key file never enters the package; production must
+> proxy short-lived tokens through a backend.
 
 ## Build, test and run
 
@@ -102,57 +115,64 @@ From the workspace root:
 node packages/toolchain/src/cli.ts build apps/kitchen-helper   # tsc + CJS bundle
 node packages/toolchain/src/cli.ts test apps/kitchen-helper    # typecheck + node:test + SDK validation
 node packages/toolchain/src/cli.ts package apps/kitchen-helper # .fuiapp
-node packages/toolchain/src/cli.ts run --latest --project apps/kitchen-helper
+node packages/toolchain/src/cli.ts run --latest --project apps/kitchen-helper \
+  --state-dir apps/kitchen-helper/sim-state                   # isolated project-local state
 node packages/toolchain/src/cli.ts smoke apps/kitchen-helper   # waits for a real presented frame
 ```
 
-`vp run app:build`, `app:test`, `app:package`, `app:run` and `sim:smoke` run the same steps.
+`vp run app:build`, `app:test`, `app:package`, `app:run` and `sim:smoke` run the same steps;
+`app:run` already passes `--state-dir apps/kitchen-helper/sim-state`.
 
 To force the error screen automatically:
 
 ```bash
 FUSIONUI_DEMO_TEST_USER_TEXT='*' \
-  node packages/toolchain/src/cli.ts run --latest --project apps/kitchen-helper
+  node packages/toolchain/src/cli.ts run --latest --project apps/kitchen-helper \
+  --state-dir apps/kitchen-helper/sim-state
 ```
 
 To simulate saying a dish:
 
 ```bash
 FUSIONUI_DEMO_TEST_USER_TEXT='番茄炒蛋' \
-  node packages/toolchain/src/cli.ts run --latest --project apps/kitchen-helper
+  node packages/toolchain/src/cli.ts run --latest --project apps/kitchen-helper \
+  --state-dir apps/kitchen-helper/sim-state
 ```
 
 ## Architecture
 
-| Path                              | Purpose                                                                   |
-| --------------------------------- | ------------------------------------------------------------------------- |
-| `app-src/index.ts`                | Window, frame loop, input polling, async effect execution, lifecycle logs |
-| `app-src/model/types.ts`          | Recipe / screen / timer domain types                                      |
-| `app-src/model/state.ts`          | Pure reducer: screens, prep focus, countdown rules, assistant modal       |
-| `app-src/model/i18n.ts`           | Bilingual copy and formatting helpers                                     |
-| `app-src/recipe/howtocook.ts`     | Search, detail page and Markdown adapter                                  |
-| `app-src/recipe/llm.ts`           | DeepSeek structuring + Q&A prompts, JSON normalization                    |
-| `app-src/recipe/local-extract.ts` | Offline Markdown → recipe parser                                          |
-| `app-src/recipe/service.ts`       | Pipeline orchestration and fallbacks                                      |
-| `app-src/recipe/recommended.ts`   | Home picks and three offline snapshots                                    |
-| `app-src/ui/*.ts`                 | Screens, theme, icons, frame-driven micro-animations                      |
-| `src/assets/icons/*.png`          | Generated 96×96 icon set                                                  |
-| `tools/generate-icons.py`         | Reproducible icon generator                                               |
-| `tests/`                          | Reducer, parser, LLM normalization and fallback tests                     |
-| `docs/`                           | Additional design notes and screenshots                                   |
+| Path                              | Purpose                                                                    |
+| --------------------------------- | -------------------------------------------------------------------------- |
+| `app-src/index.ts`                | Window, frame loop, input polling, async effect execution, lifecycle logs  |
+| `app-src/application-data.ts`     | Private data directory from `FUSIONUI_APP_DATA_DIR` per the platform guide |
+| `app-src/config.ts`               | DeepSeek key resolution (env / runtime file / placeholder), endpoints      |
+| `app-src/model/types.ts`          | Recipe / screen / timer domain types                                       |
+| `app-src/model/state.ts`          | Pure reducer: screens, prep focus, countdown rules, assistant modal        |
+| `app-src/model/i18n.ts`           | Bilingual copy and formatting helpers                                      |
+| `app-src/recipe/howtocook.ts`     | Search, detail page and Markdown adapter                                   |
+| `app-src/recipe/llm.ts`           | DeepSeek structuring + Q&A prompts, JSON normalization                     |
+| `app-src/recipe/local-extract.ts` | Offline Markdown → recipe parser                                           |
+| `app-src/recipe/service.ts`       | Pipeline orchestration and fallbacks                                       |
+| `app-src/recipe/recommended.ts`   | Home picks and three offline snapshots                                     |
+| `app-src/ui/*.ts`                 | Screens, theme, icons, frame-driven micro-animations                       |
+| `src/assets/icons/*.png`          | Generated 96×96 icon set                                                   |
+| `tools/generate-icons.py`         | Reproducible icon generator                                                |
+| `tests/`                          | Reducer, parser, LLM normalization and fallback tests                      |
+| `docs/`                           | Additional design notes and screenshots                                    |
 
 Only `app-src/index.ts` is bundled; FusionUI/OS modules stay external and are provided by
 the Client. `src/index.js` is generated — do not edit it by hand.
 
 ## Testing
 
-`node packages/toolchain/src/cli.ts test apps/kitchen-helper` runs 5 test files (36 tests):
+`node packages/toolchain/src/cli.ts test apps/kitchen-helper` runs 6 test files (43 tests):
 
 - home → listening → loading → recipe → prep → cooking → done/error transitions;
 - confirm-vs-timer priority and overlapping timers across steps;
 - prep focus/removal/ready logic;
 - Markdown timer/heat/icon extraction for three real HowToCook recipes;
 - DeepSeek JSON validation/clamping and offline fallbacks;
+- runtime DeepSeek key resolution from the state directory (env wins, comments ignored);
 - `*` forced error and text command parsing.
 
 `smoke` starts the simulator, installs the package and waits for a presented application

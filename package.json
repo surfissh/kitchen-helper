@@ -12,7 +12,7 @@
     "app:build": "node packages/toolchain/src/cli.ts build apps/kitchen-helper",
     "app:test": "node packages/toolchain/src/cli.ts test apps/kitchen-helper",
     "app:package": "node packages/toolchain/src/cli.ts package apps/kitchen-helper",
-    "app:run": "node packages/toolchain/src/cli.ts run --latest --project apps/kitchen-helper",
+    "app:run": "node packages/toolchain/src/cli.ts run --latest --project apps/kitchen-helper --state-dir apps/kitchen-helper/sim-state",
     "app:smoke": "node packages/toolchain/src/cli.ts smoke apps/kitchen-helper",
     "check": "tsc -p packages/toolchain/tsconfig.json && vp test packages/toolchain/tests"
   },

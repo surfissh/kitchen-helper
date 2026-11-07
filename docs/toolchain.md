@@ -78,15 +78,32 @@ npm link packages/toolchain   # bin: ivt -> src/cli.ts
 | `--display-mode`        | `mono`    | `mono` / `stereo`                                       |
 | `--audio-mode`          | `desktop` | `desktop` / `silent`                                    |
 | `--port`                | `28045`   | 模拟器 TCP 端口                                         |
+| `--state-dir`           | 未指定    | 隔离的模拟器状态目录（绝对路径，或相对当前目录）        |
 | `--allow-debug-replace` | on        | 同 versionCode 替换已安装调试应用（重新打包后默认可用） |
 | `--no-replace`          | off       | 严格拒绝同 versionCode 的字节变化                       |
 | `--dry-run`             | off       | 打印启动计划，不启动模拟器                              |
 
 `run` 是阻塞式会话：关闭 Client 窗口或按 Ctrl+C 结束。
 
+`--state-dir` 会创建/复用一整套隔离的模拟器状态（应用安装信息、应用私有数据、运行数据、
+日志与缓存），对应平台文档《模拟器数据区域的指定与读取》。应用本身不解析该参数，而是通过
+Host 提供的 `FUSIONUI_APP_DATA_DIR` 私有目录读写数据；所以同一 `--state-dir` 下的应用数据
+会一直保留，换一个目录就得到全新的隔离环境。工具链会在该目录根部写入
+`{"type": "commonjs"}` 的 `package.json` 标记——否则当状态目录位于 `"type": "module"` 的
+项目内时，Client 加载已安装的 CommonJS 入口会报
+`require is not defined in ES module scope`。示例：
+
+```bash
+# 项目内隔离状态目录：首次运行会创建它，之后复用
+node packages/toolchain/src/cli.ts run --latest \
+  --project apps/kitchen-helper \
+  --state-dir apps/kitchen-helper/sim-state
+```
+
 ### `ivt dev [project]`
 
 `build` → SDK `build` → SDK `package` → SDK `run` 一条龙，适合日常“改代码 → 看效果”。
+`ivt dev` 同样支持 `--state-dir`。
 
 ### `ivt smoke [project] [--timeout <s>] [--profile release|diagnostic]`
 

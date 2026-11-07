@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import { resolve } from "node:path";
+
 import {
   CliError,
   flagBoolean,
@@ -319,7 +321,7 @@ const COMMANDS: Record<string, CommandDefinition> = {
   run: {
     summary: "install a package in the simulator and run it",
     usage:
-      "ivt run [package] [--latest] [--project <dir>] [--profile release|diagnostic] [--display-mode mono|stereo] [--audio-mode desktop|silent] [--port <n>]",
+      "ivt run [package] [--latest] [--project <dir>] [--state-dir <dir>] [--profile release|diagnostic] [--display-mode mono|stereo] [--audio-mode desktop|silent] [--port <n>]",
     run: async (context, args, globals) => {
       const parsed = parseRunFlags(args);
       if (globals.help) {
@@ -331,7 +333,8 @@ const COMMANDS: Record<string, CommandDefinition> = {
   },
   dev: {
     summary: "build, package and run in one step",
-    usage: "ivt dev [project] [--profile ...] [--display-mode ...] [--audio-mode ...]",
+    usage:
+      "ivt dev [project] [--state-dir <dir>] [--profile ...] [--display-mode ...] [--audio-mode ...]",
     run: async (context, args, globals) => {
       const parsed = parseRunFlags(args);
       if (globals.help) {
@@ -446,6 +449,11 @@ function parseRunFlags(args: string[]): ParsedFlags {
       "display-mode": { type: "string", description: "mono (default) or stereo" },
       "audio-mode": { type: "string", description: "desktop (default) or silent" },
       port: { type: "string", description: "simulator TCP port (default 28045)" },
+      "state-dir": {
+        type: "string",
+        description:
+          "isolated simulator state directory (absolute, or relative to the current directory)",
+      },
       "allow-debug-replace": {
         type: "boolean",
         description: "replace an installed debug app with the same versionCode",
@@ -475,6 +483,7 @@ function runOptions(parsed: ParsedFlags) {
   if (!Number.isInteger(port) || port < 1024 || port > 65535) {
     throw new CliError("--port must be an integer between 1024 and 65535", 2);
   }
+  const stateDir = flagString(parsed, "state-dir");
   return {
     package: parsed.positionals[0],
     latest: flagBoolean(parsed, "latest"),
@@ -483,6 +492,7 @@ function runOptions(parsed: ParsedFlags) {
     displayMode: displayMode as "mono" | "stereo",
     audioMode: audioMode as "desktop" | "silent",
     port,
+    stateDir: stateDir ? resolve(stateDir) : undefined,
     allowDebugReplace:
       flagBoolean(parsed, "allow-debug-replace") || !flagBoolean(parsed, "no-replace"),
     dryRun: flagBoolean(parsed, "dry-run"),

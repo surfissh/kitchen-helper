@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
 
+import { applicationDataDirectory, applicationDataPath } from "./application-data.ts";
 import type { Localized } from "./model/types.ts";
 
 export interface HistoryState {
@@ -9,15 +9,10 @@ export interface HistoryState {
 }
 
 const EMPTY_HISTORY: HistoryState = { completedCount: 0, lastDish: null };
-
-function dataDirectory(): string | null {
-  const directory = process.env.FUSIONUI_APP_DATA_DIR;
-  return directory && directory.length > 0 ? directory : null;
-}
+const HISTORY_FILE = "kitchen-helper-history.json";
 
 function historyPath(): string | null {
-  const directory = dataDirectory();
-  return directory ? join(directory, "kitchen-helper-history.json") : null;
+  return applicationDataPath(HISTORY_FILE);
 }
 
 /** Best-effort read; a missing or unreadable file simply means "first run". */
@@ -48,7 +43,7 @@ export function loadHistory(): HistoryState {
 /** Best-effort write; history must never break the cooking flow. */
 export function saveHistory(history: HistoryState): void {
   const path = historyPath();
-  const directory = dataDirectory();
+  const directory = applicationDataDirectory();
   if (!path || !directory) return;
   try {
     if (!existsSync(directory)) mkdirSync(directory, { recursive: true });

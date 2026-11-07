@@ -8,6 +8,6 @@
     "build": "node ../../packages/toolchain/src/cli.ts build",
     "test": "node ../../packages/toolchain/src/cli.ts test",
     "package": "node ../../packages/toolchain/src/cli.ts package",
-    "run": "node ../../packages/toolchain/src/cli.ts run --latest --project ."
+    "run": "node ../../packages/toolchain/src/cli.ts run --latest --project . --state-dir sim-state"
   }
 }

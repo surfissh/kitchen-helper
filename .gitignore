@@ -42,5 +42,11 @@ dist-ssr
 *.fuiapp
 .integrity-backup/
 
+# Project-local simulator state selected with `ivt run --state-dir`; it holds
+# installed apps, logs and the application's private data (e.g. the DeepSeek
+# key file). Never commit it.
+apps/kitchen-helper/sim-state/
+apps/kitchen-helper/.sim-state.lock
+
 # Generated packaged entry for the demo application
 apps/kitchen-helper/src/index.js

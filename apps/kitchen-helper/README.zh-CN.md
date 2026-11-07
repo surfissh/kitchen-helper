@@ -74,20 +74,29 @@ HowToCook 搜索 ──► 详情页 ──► 通过 GitHub contents API 读取
 - GitHub 失败时退回到详情页可见文本。
 - 番茄炒蛋 / 可乐鸡翅 / 酸辣土豆丝三道菜内置为完整结构化快照，离线也能演示。
 
-## DeepSeek API Key
+## DeepSeek API Key 与状态目录
 
-在 [`app-src/config.ts`](app-src/config.ts) 中粘贴 Key，或在启动模拟器前导出
-`DEEPSEEK_API_KEY` 环境变量；环境变量优先。
+Key 在**运行时**从应用私有数据目录读取，不会进入 bundle。`vp run app:run` 会用项目内的
+隔离状态目录启动模拟器（`--state-dir apps/kitchen-helper/sim-state`）。按平台文档，应用
+不解析 `--state-dir`，只通过 Host 提供的 `FUSIONUI_APP_DATA_DIR`（由
+[`app-src/application-data.ts`](app-src/application-data.ts) 封装）访问自己的数据。
 
-```ts
-export const DEEPSEEK_API_KEY = ""; // TODO: 粘贴 sk-...
+首次运行会打印需要创建的文件：
+
+```text
+KITCHEN_HELPER_DATA_DIR {"path":".../sim-state/applications/data/com.example.kitchenhelper"}
+KITCHEN_HELPER_LLM_KEY {"source":"none","file":".../applications/data/com.example.kitchenhelper/deepseek-key.txt","model":"deepseek-chat"}
 ```
 
-未配置 Key 时应用仍可用：菜谱页右上角显示“本地解析（未配置 Key）”，步骤页提问由本地
-提示库回答。
+应用首次运行会自动生成带注释模板的 `deepseek-key.txt`。把 `sk-...` 粘贴进去
+（空行与 `#` 注释会被忽略）并重启应用，
+`KITCHEN_HELPER_LLM_KEY` 会显示 `"source":"file"`。`DEEPSEEK_API_KEY` 环境变量仍然优先；
+`app-src/config.ts` 保留一个开发占位符用于快速试验。`sim-state/` 已被 git 忽略。
 
-> ⚠️ 打进 `.fuiapp` 的 Key 对拿到安装包的人可见。该占位符仅用于本地 MVP 测试；生产环境
-> 必须通过后端代理下发短期令牌。
+未配置 Key 时应用仍可用：菜谱页显示“本地解析（未配置 Key）”，步骤页提问由本地提示库回答。
+
+> ⚠️ 打进 `.fuiapp` 的 Key（例如通过 `app-src/config.ts`）对拿到安装包的人可见。运行时
+> Key 文件不会进入安装包；生产环境仍应通过后端代理下发短期令牌。
 
 ## 构建、测试与运行
 
@@ -97,24 +106,28 @@ export const DEEPSEEK_API_KEY = ""; // TODO: 粘贴 sk-...
 node packages/toolchain/src/cli.ts build apps/kitchen-helper   # tsc + CJS bundle
 node packages/toolchain/src/cli.ts test apps/kitchen-helper    # 类型检查 + node:test + SDK 校验
 node packages/toolchain/src/cli.ts package apps/kitchen-helper # .fuiapp
-node packages/toolchain/src/cli.ts run --latest --project apps/kitchen-helper
+node packages/toolchain/src/cli.ts run --latest --project apps/kitchen-helper \
+  --state-dir apps/kitchen-helper/sim-state                   # 隔离的项目内状态目录
 node packages/toolchain/src/cli.ts smoke apps/kitchen-helper   # 等待真实应用帧呈现
 ```
 
-`vp run app:build`、`app:test`、`app:package`、`app:run`、`sim:smoke` 等价。
+`vp run app:build`、`app:test`、`app:package`、`app:run`、`sim:smoke` 等价；
+`app:run` 已经带上 `--state-dir apps/kitchen-helper/sim-state`。
 
 自动触发异常页：
 
 ```bash
 FUSIONUI_DEMO_TEST_USER_TEXT='*' \
-  node packages/toolchain/src/cli.ts run --latest --project apps/kitchen-helper
+  node packages/toolchain/src/cli.ts run --latest --project apps/kitchen-helper \
+  --state-dir apps/kitchen-helper/sim-state
 ```
 
 自动模拟说出一道菜：
 
 ```bash
 FUSIONUI_DEMO_TEST_USER_TEXT='番茄炒蛋' \
-  node packages/toolchain/src/cli.ts run --latest --project apps/kitchen-helper
+  node packages/toolchain/src/cli.ts run --latest --project apps/kitchen-helper \
+  --state-dir apps/kitchen-helper/sim-state
 ```
 
 ## 代码结构
@@ -122,6 +135,8 @@ FUSIONUI_DEMO_TEST_USER_TEXT='番茄炒蛋' \
 | 路径                              | 用途                                                   |
 | --------------------------------- | ------------------------------------------------------ |
 | `app-src/index.ts`                | 窗口、帧循环、输入轮询、异步 effect 执行、生命周期日志 |
+| `app-src/application-data.ts`     | 按平台文档包装 `FUSIONUI_APP_DATA_DIR` 私有数据目录    |
+| `app-src/config.ts`               | DeepSeek Key 解析（env / 运行时文件 / 占位符）与端点   |
 | `app-src/model/types.ts`          | 菜谱 / 页面 / 倒计时等领域类型                         |
 | `app-src/model/state.ts`          | 纯状态机：页面流转、准备页焦点、倒计时规则、助手弹窗   |
 | `app-src/model/i18n.ts`           | 中英双语文案与格式化                                   |
@@ -141,13 +156,14 @@ FUSIONUI_DEMO_TEST_USER_TEXT='番茄炒蛋' \
 
 ## 测试
 
-`node packages/toolchain/src/cli.ts test apps/kitchen-helper` 会运行 5 个测试文件（36 个测试用例）：
+`node packages/toolchain/src/cli.ts test apps/kitchen-helper` 会运行 6 个测试文件（43 个测试用例）：
 
 - 首页 → 聆听 → 加载 → 菜谱 → 准备 → 步骤 → 完成 / 异常的全流程；
 - 确认键“先开倒计时”优先级、跨步骤叠加的多个倒计时；
 - 准备页焦点、移除与“已准备好”逻辑；
 - 三道真实 HowToCook 菜谱的 Markdown 倒计时 / 火候 / 图标提取；
 - DeepSeek JSON 校验、截断与离线降级；
+- 从状态目录运行时读取 DeepSeek Key（环境变量优先、忽略注释行）；
 - `*` 强制异常与文字命令解析。
 
 `smoke` 会启动模拟器、安装应用包并等待真实应用帧呈现，是端到端验收命令。

@@ -34,6 +34,13 @@ import {
   loadingSucceeded,
   tick,
 } from "./model/state.ts";
+import { applicationDataDirectory } from "./application-data.ts";
+import {
+  DEEPSEEK_MODEL,
+  deepSeekKeyFilePath,
+  deepSeekKeyStatus,
+  ensureDeepSeekKeyTemplate,
+} from "./config.ts";
 import { isRecipePipelineError } from "./recipe/errors.ts";
 import { answerCookingQuestion, loadRecipe } from "./recipe/service.ts";
 import { loadHistory, recordCompletion, saveHistory, type HistoryState } from "./storage.ts";
@@ -75,6 +82,18 @@ class KitchenController {
     this.state = createInitialState(language, {
       completedCount: this.history.completedCount,
       lastDish: this.history.lastDish,
+    });
+    // The data directory follows the simulator state directory selected with
+    // `--state-dir`; the DeepSeek key is read from it at request time. Log the
+    // resolved paths (never the key) so a developer can drop the key file in
+    // the right place.
+    ensureDeepSeekKeyTemplate();
+    log("KITCHEN_HELPER_DATA_DIR", { path: applicationDataDirectory() });
+    const key = deepSeekKeyStatus();
+    log("KITCHEN_HELPER_LLM_KEY", {
+      source: key.source,
+      file: deepSeekKeyFilePath(),
+      model: DEEPSEEK_MODEL,
     });
   }
 

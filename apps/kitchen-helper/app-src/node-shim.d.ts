@@ -17,6 +17,8 @@ declare module "node:fs" {
   export function writeFileSync(path: string, data: string): void;
   export function existsSync(path: string): boolean;
   export function mkdirSync(path: string, options?: { recursive?: boolean }): void;
+  export function mkdtempSync(prefix: string): string;
+  export function rmSync(path: string, options?: { recursive?: boolean; force?: boolean }): void;
 }
 
 declare module "node:buffer" {
@@ -31,6 +33,11 @@ declare module "node:path" {
   export function dirname(path: string): string;
   export function isAbsolute(path: string): boolean;
   export function normalize(path: string): string;
+  export const sep: string;
+}
+
+declare module "node:os" {
+  export function tmpdir(): string;
 }
 
 declare module "node:test" {

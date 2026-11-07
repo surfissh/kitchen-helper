@@ -207,23 +207,44 @@ action when allowed. Back always returns home.
 
 ## Configuration and secrets
 
-| Setting                           | Location                                                  |
-| --------------------------------- | --------------------------------------------------------- |
-| DeepSeek key                      | `app-src/config.ts` placeholder or `DEEPSEEK_API_KEY` env |
-| DeepSeek base/model/timeout       | `app-src/config.ts`                                       |
-| HowToCook site/repo/timeouts      | `app-src/config.ts`                                       |
-| Application identity/capabilities | `FusionUIApp.json`                                        |
+| Setting                           | Location                                                                              |
+| --------------------------------- | ------------------------------------------------------------------------------------- |
+| DeepSeek key (preferred)          | `deepseek-key.txt` in the app's private data directory inside the simulator state dir |
+| DeepSeek key (CI/overrides)       | `DEEPSEEK_API_KEY` environment variable (wins over the file)                          |
+| DeepSeek key (dev placeholder)    | `app-src/config.ts` (compiled into the bundle — avoid)                                |
+| DeepSeek base/model/timeout       | `app-src/config.ts`                                                                   |
+| HowToCook site/repo/timeouts      | `app-src/config.ts`                                                                   |
+| Application identity/capabilities | `FusionUIApp.json`                                                                    |
 
 `FusionUIApp.json` declares `input.navigation` and `input.text` with `minimumHostVersion: 2`.
 
-The API key is a development placeholder only. A key baked into a `.fuiapp` is readable by
-anyone who obtains the package; production must use a backend token proxy.
+### Runtime key file and the simulator state directory
+
+Per the platform guide, `--state-dir` selects the simulator's _whole isolated state_ (install
+registry, application data, runtime data, logs, cache) while the application only ever touches
+its own private directory provided by the Host (`FUSIONUI_APP_DATA_DIR`, wrapped by
+`applicationDataPath()` in [`application-data.ts`](../apps/kitchen-helper/app-src/application-data.ts)).
+
+`vp run app:run` (and the app's `run` script) therefore pass
+`--state-dir apps/kitchen-helper/sim-state`, keeping that state inside the project. The first
+run prints the resolved private directory:
+
+```text
+KITCHEN_HELPER_DATA_DIR {"path":".../apps/kitchen-helper/sim-state/applications/data/com.example.kitchenhelper"}
+KITCHEN_HELPER_LLM_KEY {"source":"file","file":".../applications/data/com.example.kitchenhelper/deepseek-key.txt","model":"deepseek-chat"}
+```
+
+The app seeds that `deepseek-key.txt` with a comment template when it is missing.
+Paste the key into it (blank lines and `#` comments are ignored) and
+restart the app; the key is read at request time, never baked into the `.fuiapp`. The file lives
+under `sim-state/`, which is git-ignored. A key compiled into a `.fuiapp` would be readable by
+anyone who obtains the package, so production must still use a backend token proxy.
 
 ## Verification
 
 | Check                             | Result                                                                    |
 | --------------------------------- | ------------------------------------------------------------------------- |
-| `ivt test apps/kitchen-helper`    | pass — 5 files, 36 tests (reducer, parsers, LLM normalization, fallbacks) |
+| `ivt test apps/kitchen-helper`    | pass — 6 files, 43 tests (reducer, parsers, LLM normalization, fallbacks) |
 | `ivt package apps/kitchen-helper` | pass — `.fuiapp`, debug-unsigned                                          |
 | `ivt smoke apps/kitchen-helper`   | pass — `IrisView application frame 1`                                     |
 | Text injection `番茄炒蛋`         | pass — live search + local structuring → recipe screen                    |

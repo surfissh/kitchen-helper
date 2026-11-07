@@ -190,23 +190,44 @@ base64 解码，不依赖 `raw.githubusercontent.com` 直连。
 
 ## 配置与密钥
 
-| 配置                     | 位置                                                     |
-| ------------------------ | -------------------------------------------------------- |
-| DeepSeek Key             | `app-src/config.ts` 占位符或 `DEEPSEEK_API_KEY` 环境变量 |
-| DeepSeek 地址/模型/超时  | `app-src/config.ts`                                      |
-| HowToCook 站点/仓库/超时 | `app-src/config.ts`                                      |
-| 应用身份与能力           | `FusionUIApp.json`                                       |
+| 配置                     | 位置                                                    |
+| ------------------------ | ------------------------------------------------------- |
+| DeepSeek Key（推荐）     | 模拟器状态目录下、应用私有目录里的 `deepseek-key.txt`   |
+| DeepSeek Key（CI/覆盖）  | `DEEPSEEK_API_KEY` 环境变量（优先于文件）               |
+| DeepSeek Key（开发占位） | `app-src/config.ts` 占位符（会被打包进 bundle，不推荐） |
+| DeepSeek 地址/模型/超时  | `app-src/config.ts`                                     |
+| HowToCook 站点/仓库/超时 | `app-src/config.ts`                                     |
+| 应用身份与能力           | `FusionUIApp.json`                                      |
 
 `FusionUIApp.json` 声明 `input.navigation` 与 `input.text`，`minimumHostVersion: 2`。
 
-API Key 只是开发占位符。打进 `.fuiapp` 的 Key 对拿到安装包的人可见；生产环境必须通过
-后端代理下发短期令牌。
+### 运行时 Key 文件与模拟器状态目录
+
+按平台文档《模拟器数据区域的指定与读取》，`--state-dir` 指定的是模拟器**整套隔离状态**
+（安装信息、应用数据、运行数据、日志、缓存），应用不能解析它，只能通过 Host 提供的私有目录
+（`FUSIONUI_APP_DATA_DIR`，由
+[`application-data.ts`](../apps/kitchen-helper/app-src/application-data.ts) 封装为
+`applicationDataPath()`）读写自己的数据。
+
+因此 `vp run app:run`（以及应用自己的 `run` 脚本）会传入
+`--state-dir apps/kitchen-helper/sim-state`，把整套状态留在项目目录内。首次运行会打印
+解析后的私有目录：
+
+```text
+KITCHEN_HELPER_DATA_DIR {"path":".../apps/kitchen-helper/sim-state/applications/data/com.example.kitchenhelper"}
+KITCHEN_HELPER_LLM_KEY {"source":"file","file":".../applications/data/com.example.kitchenhelper/deepseek-key.txt","model":"deepseek-chat"}
+```
+
+应用首次运行会自动生成带注释模板的 `deepseek-key.txt`。把 Key 粘贴进去
+（空行与 `#` 注释会被忽略）后重启应用即可；Key 在请求时
+读取，不会被打进 `.fuiapp`。该文件位于 `sim-state/` 下（已被 git 忽略）。打进 `.fuiapp`
+的 Key 对拿到安装包的人可见，生产环境仍应通过后端代理下发短期令牌。
 
 ## 验证结果
 
 | 检查项                            | 结果                                                                   |
 | --------------------------------- | ---------------------------------------------------------------------- |
-| `ivt test apps/kitchen-helper`    | 通过 — 5 个测试文件、36 个测试用例（状态机、解析器、LLM 归一化、降级） |
+| `ivt test apps/kitchen-helper`    | 通过 — 6 个测试文件、43 个测试用例（状态机、解析器、LLM 归一化、降级） |
 | `ivt package apps/kitchen-helper` | 通过 — `.fuiapp`，debug-unsigned                                       |
 | `ivt smoke apps/kitchen-helper`   | 通过 — `IrisView application frame 1`                                  |
 | 文字注入 `番茄炒蛋`               | 通过 — 实时搜索 + 本地结构化 → 菜谱页                                  |
