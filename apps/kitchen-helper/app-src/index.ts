@@ -1,3 +1,13 @@
+/**
+ * Kitchen Helper — entry point.
+ *
+ * Responsibilities:
+ *  - create the IrisView window and FusionUI root;
+ *  - drive a single requestAnimationFrame loop that polls navigation/text input;
+ *  - apply the pure reducer and execute its async effects (HowToCook + DeepSeek);
+ *  - render the current screen and log lifecycle/state for simulator checks.
+ */
+
 import {
   App,
   AppLifecycle,
@@ -8,261 +18,268 @@ import {
   Window,
   WindowProperty,
 } from "@irisview/osx/os";
-import { takeNavigationAction } from "@irisview/osx/os/input";
-import { Board, Color, Font, FusionRoot, Text, TextAlign, View } from "@irisview/osx/fusionui";
-import type { RootWidget, Widget } from "@irisview/osx/fusionui";
+import { isNavigationAvailable, takeNavigationAction, takeTextInput } from "@irisview/osx/os/input";
+import { FusionRoot } from "@irisview/osx/fusionui";
+
+import type { AppError, AppState, Effect, Recipe, UiLanguage } from "./model/types.ts";
 import {
-  RECIPE_STEPS,
+  assistantAnswered,
+  createInitialState,
   currentStep,
-  cycleLabel,
-  formatCountdown,
-  initialState,
-  progressRatio,
-  remainingMs,
-  skip,
+  errorForCode,
+  handleAction,
+  handleTextInput,
+  loadingFailed,
+  loadingProgress,
+  loadingSucceeded,
   tick,
-  type RecipeState,
-} from "./recipe.ts";
-import { loadState, saveState } from "./storage.ts";
+} from "./model/state.ts";
+import { isRecipePipelineError } from "./recipe/errors.ts";
+import { answerCookingQuestion, loadRecipe } from "./recipe/service.ts";
+import { loadHistory, recordCompletion, saveHistory, type HistoryState } from "./storage.ts";
+import { AppRenderer } from "./ui/renderer.ts";
 
-const APP_ID = "com.example.kitchenhelper";
-const DISPLAY_WIDTH = 640;
-const DISPLAY_HEIGHT = 480;
-const ACTIVE = Color.fromRGB8(0, 255, 128);
-const DIM = Color.fromRGB8(40, 90, 62);
-const TEXT = Color.fromRGB8(200, 255, 220);
-const MUTED = Color.fromRGB8(120, 180, 150);
+const MIN_LOADING_MS = 1_500;
 
-interface ViewState {
-  window: Window | null;
-  root: FusionRoot | null;
-  board: Board | null;
-  title: Text | null;
-  round: Text | null;
-  stepName: Text | null;
-  countdown: Text | null;
-  instruction: Text | null;
-  status: Text | null;
-  dots: View[];
-  frame: number | null;
-  lastFrameAt: number | null;
-  lastPaintAt: number;
-  recipe: RecipeState;
-  language: "zh" | "en";
+interface PendingLoad {
+  readonly requestId: number;
+  readonly recipe?: Recipe;
+  readonly error?: AppError;
+  readonly readyAtMs: number;
 }
 
-const view: ViewState = {
-  window: null,
-  root: null,
-  board: null,
-  title: null,
-  round: null,
-  stepName: null,
-  countdown: null,
-  instruction: null,
-  status: null,
-  dots: [],
-  frame: null,
-  lastFrameAt: null,
-  lastPaintAt: 0,
-  recipe: initialState(),
-  language: "en",
-};
-
-function label(
-  parent: Widget,
-  y: number,
-  height: number,
-  size: number,
-  bold: number,
-  color: Color,
-): Text {
-  const text = Text.create();
-  text.setParent(parent);
-  text.setIgnoreLayout(true);
-  text.setPosition([0, y, 0]);
-  text.setSize([DISPLAY_WIDTH, height, 0]);
-  text.setText("");
-  text.setLongMode(Text.LongMode.LONG_DOT_END);
-  const style = text.getLocalStyle();
-  style.setTextColor(color);
-  style.setTextAlign(TextAlign.CENTER);
-  const font = Font.getCachedFont("", size, bold, 0);
-  if (font) style.setTextFont(font);
-  return text;
+function displayLanguage(): UiLanguage {
+  return getDisplayLanguage() === DisplayLanguage.ENGLISH ? "en" : "zh";
 }
 
-function dot(parent: Widget, x: number): View {
-  const view = View.create();
-  view.setParent(parent);
-  view.setIgnoreLayout(true);
-  view.setPosition([x, 352, 0]);
-  view.setSize([18, 18, 0]);
-  view.getLocalStyle().setBackgroundColor(DIM);
-  return view;
+function log(event: string, payload?: Record<string, unknown>): void {
+  console.log(payload ? `${event} ${JSON.stringify(payload)}` : event);
 }
 
-/** Repaint the whole HUD from the current recipe state. */
-function paint(): void {
-  if (!view.board) return;
-  const language = view.language;
-  const state = view.recipe;
-  const step = currentStep(state);
-  const stepNumber = state.completed ? RECIPE_STEPS.length : state.stepIndex + 1;
+class KitchenController {
+  private window: Window | null = null;
+  private renderer: AppRenderer | null = null;
+  private state: AppState;
+  private history: HistoryState;
+  private frame: number | null = null;
+  private lastTime: number | null = null;
+  private active = false;
+  private pendingLoad: PendingLoad | null = null;
+  private loadingStartedAtMs = 0;
+  private lastScreen = "";
+  private readonly language: UiLanguage;
 
-  view.round?.setText(
-    language === "zh"
-      ? `步骤 ${stepNumber} / ${RECIPE_STEPS.length}`
-      : `Step ${stepNumber} / ${RECIPE_STEPS.length}`,
-  );
-  view.stepName?.setText(
-    state.completed
-      ? language === "zh"
-        ? "完成"
-        : "Done"
-      : language === "zh"
-        ? step.nameZh
-        : step.nameEn,
-  );
-  view.countdown?.setText(formatCountdown(remainingMs(state)));
-  view.instruction?.setText(
-    state.completed
-      ? language === "zh"
-        ? "稍作休息，下一轮马上开始"
-        : "Rest a moment; the next round starts shortly"
-      : language === "zh"
-        ? step.instructionZh
-        : step.instructionEn,
-  );
-  view.status?.setText(
-    `${cycleLabel(state, language)} · ${language === "zh" ? "←/→ 切换步骤" : "←/→ change step"}`,
-  );
-
-  const activeIndex = state.completed ? RECIPE_STEPS.length : state.stepIndex;
-  view.dots.forEach((dotView, index) => {
-    const color =
-      index < activeIndex ? Color.fromRGB8(0, 140, 90) : index === activeIndex ? ACTIVE : DIM;
-    dotView.getLocalStyle().setBackgroundColor(color);
-  });
-
-  // A subtle progress cue in the countdown color.
-  const ratio = progressRatio(state);
-  view.countdown?.getLocalStyle().setTextColor(ratio >= 1 ? ACTIVE : Color.fromRGB8(160, 255, 210));
-}
-
-function onRecipeChanged(result: ReturnType<typeof tick>): void {
-  view.recipe = result.state;
-  if (result.cycleCompleted) {
-    const completed = view.recipe.cycles + 1;
-    saveState({ cycles: completed });
-    console.log(`KITCHEN_CYCLE completed=${completed}`);
+  constructor(language: UiLanguage) {
+    this.language = language;
+    this.history = loadHistory();
+    this.state = createInitialState(language, {
+      completedCount: this.history.completedCount,
+      lastDish: this.history.lastDish,
+    });
   }
-  paint();
-}
 
-function pollInput(): boolean {
-  let changed = false;
-  for (;;) {
-    const action = takeNavigationAction();
-    if (action === null) break;
-    if (action === "left") {
-      view.recipe = skip(view.recipe, -1);
-      changed = true;
-    } else if (action === "right" || action === "activate") {
-      view.recipe = skip(view.recipe, 1);
-      changed = true;
+  start(): void {
+    if (this.window) return;
+    const property = WindowProperty.create();
+    property.setTitle(this.language === "zh" ? "厨房助手" : "Kitchen Helper");
+    property.setSize([0.64, 0.48, 0.01]);
+    this.window = Window.create(property);
+    const root = FusionRoot.acquireFusionRootFromWindow(this.window);
+    this.renderer = new AppRenderer(root.getRootWidget(), this.language);
+    this.renderer.render(this.state);
+    log("KITCHEN_HELPER_READY", {
+      language: this.language,
+      navigation: isNavigationAvailable(),
+      completed: this.history.completedCount,
+    });
+    this.lastScreen = this.state.screen;
+    this.resume();
+  }
+
+  pause(): void {
+    this.active = false;
+    if (this.frame !== null) cancelAnimationFrame(this.frame);
+    this.frame = null;
+  }
+
+  resume(): void {
+    if (!this.window || this.active) return;
+    this.active = true;
+    this.lastTime = null;
+    this.frame = requestAnimationFrame((time) => this.onFrame(time));
+  }
+
+  destroy(): void {
+    this.pause();
+    this.renderer?.dispose();
+    this.renderer = null;
+    try {
+      this.window?.close();
+    } catch {
+      // The Client may already have torn the surface down.
+    }
+    this.window = null;
+  }
+
+  private onFrame(timestamp: number): void {
+    this.frame = null;
+    if (!this.active || !this.window) return;
+    const delta =
+      this.lastTime === null ? 16 : Math.max(0, Math.min(250, timestamp - this.lastTime));
+    this.lastTime = timestamp;
+    this.drainInput();
+    this.state = tick(this.state, delta);
+    this.applyPendingLoad();
+    this.renderer?.render(this.state);
+    this.logScreenChange();
+    this.frame = requestAnimationFrame((time) => this.onFrame(time));
+  }
+
+  private drainInput(): void {
+    let guard = 0;
+    while (guard < 12) {
+      const action = takeNavigationAction();
+      if (action === null) break;
+      guard += 1;
+      this.dispatch(handleAction(this.state, action));
+    }
+    guard = 0;
+    while (guard < 6) {
+      const input = takeTextInput();
+      if (!input) break;
+      guard += 1;
+      log("KITCHEN_HELPER_TEXT", { text: input.text, screen: this.state.screen });
+      this.dispatch(handleTextInput(this.state, input.text));
     }
   }
-  return changed;
-}
 
-function tickFrame(timestamp: number): void {
-  view.frame = null;
-  if (!view.window) return;
-  const previous = view.lastFrameAt ?? timestamp;
-  const delta = Math.min(500, Math.max(0, timestamp - previous));
-  view.lastFrameAt = timestamp;
-
-  const inputChanged = pollInput();
-  const result = tick(view.recipe, delta);
-  if (result.stepChanged || result.cycleCompleted) {
-    onRecipeChanged(result);
-  } else {
-    view.recipe = result.state;
-    if (timestamp - view.lastPaintAt >= 100 || inputChanged) paint();
+  private dispatch(transition: { state: AppState; effects: readonly Effect[] }): void {
+    this.state = transition.state;
+    for (const effect of transition.effects) this.runEffect(effect);
   }
-  view.lastPaintAt = timestamp;
-  view.frame = requestAnimationFrame(tickFrame);
-}
 
-function resume(): void {
-  if (!view.window || view.frame !== null) return;
-  view.lastFrameAt = null;
-  view.frame = requestAnimationFrame(tickFrame);
-}
-
-function pause(): void {
-  if (view.frame !== null) {
-    cancelAnimationFrame(view.frame);
-    view.frame = null;
+  private runEffect(effect: Effect): void {
+    switch (effect.type) {
+      case "load-recipe": {
+        this.pendingLoad = null;
+        this.loadingStartedAtMs = this.state.clockMs;
+        const { query, requestId } = effect;
+        void loadRecipe(query, (phase, detail) => {
+          this.state = loadingProgress(this.state, requestId, phase, detail);
+        })
+          .then((recipe) => {
+            this.queueLoadResult({
+              requestId,
+              recipe,
+              readyAtMs: this.loadingReadyAt(),
+            });
+          })
+          .catch((error: unknown) => {
+            const code = isRecipePipelineError(error) ? error.code : "network";
+            const base = errorForCode(code, query);
+            const detail =
+              isRecipePipelineError(error) && error.detail ? error.detail : base.detail;
+            this.queueLoadResult({
+              requestId,
+              error: { ...base, detail },
+              readyAtMs: this.loadingReadyAt(),
+            });
+          });
+        break;
+      }
+      case "ask-assistant": {
+        const { question, requestId, recipe, step } = effect;
+        void answerCookingQuestion(question, recipe, step, this.language).then((answer) => {
+          setTimeout(() => {
+            this.state = assistantAnswered(this.state, requestId, answer);
+          }, 420);
+        });
+        break;
+      }
+      case "persist-completion": {
+        this.history = recordCompletion(this.history, effect.recipeTitle);
+        saveHistory(this.history);
+        log("KITCHEN_HELPER_DONE", {
+          dish: effect.recipeTitle.zh,
+          completed: this.history.completedCount,
+        });
+        break;
+      }
+    }
   }
-  view.lastFrameAt = null;
+
+  private loadingReadyAt(): number {
+    return (
+      this.state.clockMs +
+      Math.max(0, MIN_LOADING_MS - (this.state.clockMs - this.loadingStartedAtMs))
+    );
+  }
+
+  private queueLoadResult(result: PendingLoad): void {
+    // A newer request supersedes any slower result.
+    if (this.pendingLoad && this.pendingLoad.requestId > result.requestId) return;
+    this.pendingLoad = result;
+  }
+
+  private applyPendingLoad(): void {
+    const pending = this.pendingLoad;
+    if (!pending) return;
+    if (this.state.clockMs < pending.readyAtMs) return;
+    this.pendingLoad = null;
+    if (pending.recipe) {
+      log("KITCHEN_HELPER_RECIPE", {
+        title: pending.recipe.title.zh,
+        steps: pending.recipe.steps.length,
+        source: pending.recipe.source.extractedBy,
+        ingredients: pending.recipe.ingredients.length,
+      });
+      this.state = loadingSucceeded(this.state, pending.requestId, pending.recipe);
+    } else if (pending.error) {
+      log("KITCHEN_HELPER_ERROR", { code: pending.error.code, detail: pending.error.detail });
+      this.state = loadingFailed(this.state, pending.requestId, pending.error);
+    }
+  }
+
+  private logScreenChange(): void {
+    if (this.state.screen === this.lastScreen) return;
+    this.lastScreen = this.state.screen;
+    const recipe = this.state.recipe;
+    log("KITCHEN_HELPER_SCREEN", {
+      screen: this.state.screen,
+      step: this.state.cooking?.stepIndex ?? null,
+      dish: recipe?.title.zh ?? null,
+    });
+    if (this.state.screen === "cooking") {
+      const step = currentStep(this.state);
+      if (step && step.timers.length > 0) {
+        log("KITCHEN_HELPER_TIMER_READY", { step: step.title.zh, timers: step.timers.length });
+      }
+    }
+  }
+
+  /** Exposed for debugging tools; keeps the reducer state inspectable. */
+  snapshot(): AppState {
+    return this.state;
+  }
 }
 
-function teardown(): void {
-  pause();
-  view.window = null;
-  view.root = null;
-  view.board = null;
-  view.title = null;
-  view.round = null;
-  view.stepName = null;
-  view.countdown = null;
-  view.instruction = null;
-  view.status = null;
-  view.dots = [];
-}
+const controller = new KitchenController(displayLanguage());
 
-function start(): void {
-  if (view.window) return;
-  view.language = getDisplayLanguage() === DisplayLanguage.SIMPLIFIED_CHINESE ? "zh" : "en";
-  view.recipe = initialState(loadState().cycles);
-
-  const property = WindowProperty.create();
-  property.setTitle("Kitchen Helper");
-  property.setSize([0.64, 0.48, 0.01]);
-  view.window = Window.create(property);
-  view.root = FusionRoot.acquireFusionRootFromWindow(view.window);
-  const rootWidget: RootWidget = view.root.getRootWidget();
-
-  const board = Board.create();
-  view.board = board;
-  board.setParent(rootWidget);
-  board.setIgnoreLayout(true);
-  board.setSize([DISPLAY_WIDTH, DISPLAY_HEIGHT, 0]);
-  board.getLocalStyle().setBackgroundColor(Color.fromRGB8(2, 10, 6));
-
-  view.title = label(board, 22, 32, 20, 1, MUTED);
-  view.title.setText("厨房助手 · Kitchen Helper");
-  view.round = label(board, 62, 24, 16, 0, DIM);
-  view.stepName = label(board, 92, 56, 40, 1, ACTIVE);
-  view.countdown = label(board, 158, 88, 64, 1, TEXT);
-  view.instruction = label(board, 254, 60, 18, 0, MUTED);
-  view.status = label(board, 420, 26, 15, 0, DIM);
-
-  const count = RECIPE_STEPS.length;
-  const startX = DISPLAY_WIDTH / 2 - ((count - 1) * 34) / 2 - 9;
-  view.dots = Array.from({ length: count }, (_unused, index) => dot(board, startX + index * 34));
-
-  paint();
-  resume();
-  console.log(`KITCHEN_READY ${APP_ID} cycles=${view.recipe.cycles}`);
-}
-
-App.createApp((lifecycle) => {
-  if (lifecycle === AppLifecycle.ON_CREATE) start();
-  else if (lifecycle === AppLifecycle.ON_FOREGROUND || lifecycle === AppLifecycle.ON_REOPEN)
-    resume();
-  else if (lifecycle === AppLifecycle.ON_BACKGROUND) pause();
-  else if (lifecycle === AppLifecycle.ON_DESTROY) teardown();
+App.createApp((lifecycle: AppLifecycle) => {
+  log("KITCHEN_HELPER_LIFECYCLE", { lifecycle });
+  switch (lifecycle) {
+    case AppLifecycle.ON_CREATE:
+      controller.start();
+      break;
+    case AppLifecycle.ON_FOREGROUND:
+    case AppLifecycle.ON_REOPEN:
+      controller.resume();
+      break;
+    case AppLifecycle.ON_BACKGROUND:
+      controller.pause();
+      break;
+    case AppLifecycle.ON_DESTROY:
+      controller.destroy();
+      break;
+  }
 });

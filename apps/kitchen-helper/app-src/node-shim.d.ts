@@ -9,11 +9,21 @@ declare const process: {
   cwd(): string;
 };
 
+/** The Client loads the bundle as a CommonJS module, so `__dirname` is `src/`. */
+declare const __dirname: string;
+
 declare module "node:fs" {
   export function readFileSync(path: string, encoding: "utf8"): string;
   export function writeFileSync(path: string, data: string): void;
   export function existsSync(path: string): boolean;
   export function mkdirSync(path: string, options?: { recursive?: boolean }): void;
+}
+
+declare module "node:buffer" {
+  export class Buffer {
+    static from(data: string, encoding: "base64"): Buffer;
+    toString(encoding: "utf8"): string;
+  }
 }
 
 declare module "node:path" {
@@ -32,9 +42,12 @@ declare module "node:test" {
 declare module "node:assert/strict" {
   const assert: {
     equal(actual: unknown, expected: unknown, message?: string): void;
+    notEqual(actual: unknown, expected: unknown, message?: string): void;
     deepEqual(actual: unknown, expected: unknown, message?: string): void;
     ok(value: unknown, message?: string): void;
     throws(fn: () => unknown, message?: string): void;
+    rejects(promise: Promise<unknown>, error?: unknown, message?: string): Promise<void>;
+    match(value: string, pattern: RegExp, message?: string): void;
   };
   export default assert;
 }

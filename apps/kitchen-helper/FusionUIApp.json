@@ -1,14 +1,14 @@
 {
-  "capabilities": [],
+  "capabilities": ["input.navigation", "input.text"],
   "controlProfile": "generic",
   "displayName": {
     "en": "Kitchen Helper",
     "zh-CN": "厨房助手"
   },
   "id": "com.example.kitchenhelper",
-  "minimumHostVersion": 1,
+  "minimumHostVersion": 2,
   "role": "ordinary",
   "schemaVersion": 1,
-  "version": "1.0.0",
-  "versionCode": 1
+  "version": "1.1.0",
+  "versionCode": 2
 }

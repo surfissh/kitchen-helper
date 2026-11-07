@@ -1,36 +1,63 @@
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-export interface PersistedState {
-  cycles: number;
+import type { Localized } from "./model/types.ts";
+
+export interface HistoryState {
+  readonly completedCount: number;
+  readonly lastDish: Localized | null;
 }
 
-export function stateDirectory(): string {
+const EMPTY_HISTORY: HistoryState = { completedCount: 0, lastDish: null };
+
+function dataDirectory(): string | null {
   const directory = process.env.FUSIONUI_APP_DATA_DIR;
-  if (!directory) {
-    throw new Error("IrisView application data directory is unavailable");
-  }
-  return directory;
+  return directory && directory.length > 0 ? directory : null;
 }
 
-export function statePath(): string {
-  return join(stateDirectory(), "kitchen-helper.json");
+function historyPath(): string | null {
+  const directory = dataDirectory();
+  return directory ? join(directory, "kitchen-helper-history.json") : null;
 }
 
-export function loadState(): PersistedState {
+/** Best-effort read; a missing or unreadable file simply means "first run". */
+export function loadHistory(): HistoryState {
+  const path = historyPath();
+  if (!path) return EMPTY_HISTORY;
   try {
-    const parsed = JSON.parse(readFileSync(statePath(), "utf8")) as Partial<PersistedState>;
-    return { cycles: Number.isInteger(parsed.cycles) ? Number(parsed.cycles) : 0 };
+    if (!existsSync(path)) return EMPTY_HISTORY;
+    const parsed = JSON.parse(readFileSync(path, "utf8")) as {
+      completedCount?: unknown;
+      lastDish?: { zh?: unknown; en?: unknown } | null;
+    };
+    const completedCount = Number.isInteger(parsed.completedCount)
+      ? Math.max(0, Number(parsed.completedCount))
+      : 0;
+    const lastDish =
+      parsed.lastDish &&
+      typeof parsed.lastDish.zh === "string" &&
+      typeof parsed.lastDish.en === "string"
+        ? { zh: parsed.lastDish.zh, en: parsed.lastDish.en }
+        : null;
+    return { completedCount, lastDish };
   } catch {
-    return { cycles: 0 };
+    return EMPTY_HISTORY;
   }
 }
 
-export function saveState(state: PersistedState): void {
+/** Best-effort write; history must never break the cooking flow. */
+export function saveHistory(history: HistoryState): void {
+  const path = historyPath();
+  const directory = dataDirectory();
+  if (!path || !directory) return;
   try {
-    writeFileSync(statePath(), `${JSON.stringify(state)}\n`);
+    if (!existsSync(directory)) mkdirSync(directory, { recursive: true });
+    writeFileSync(path, `${JSON.stringify(history)}\n`);
   } catch {
-    // Persistence is best effort; a read-only data directory must not stop the
-    // cooking timer.
+    // Read-only data directories are acceptable.
   }
+}
+
+export function recordCompletion(previous: HistoryState, dish: Localized): HistoryState {
+  return { completedCount: previous.completedCount + 1, lastDish: dish };
 }

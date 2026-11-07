@@ -9,6 +9,16 @@
 工具链本身用 TypeScript 编写（`packages/toolchain`），可直接由 Node.js 24 运行；应用侧
 TypeScript 通过 Vite/Rolldown 打包为 Client 需要的 CommonJS 入口。
 
+工作区自带的 **Kitchen Helper** 已实现完整的 AR 做菜引导 MVP：首页推荐 → 文字模拟语音点菜 →
+HowToCook 拉取 + DeepSeek 结构化 → 菜谱信息 → 大卡片事前准备 → 分步引导（火候、叠加倒计时、
+助手问答弹窗）→ 完成页。详细说明见
+[apps/kitchen-helper/README.zh-CN.md](apps/kitchen-helper/README.zh-CN.md) 与
+[docs/kitchen-helper.zh-CN.md](docs/kitchen-helper.zh-CN.md)。
+
+| 首页                                                   | 事前准备                                               | 步骤页                                                    |
+| ------------------------------------------------------ | ------------------------------------------------------ | --------------------------------------------------------- |
+| ![首页](apps/kitchen-helper/docs/screenshots/home.png) | ![准备](apps/kitchen-helper/docs/screenshots/prep.png) | ![步骤](apps/kitchen-helper/docs/screenshots/cooking.png) |
+
 ## 功能
 
 | 能力                                 | 说明                                                                                  |
@@ -48,7 +58,7 @@ TypeScript 通过 Vite/Rolldown 打包为 Client 需要的 CommonJS 入口。
 # 1. 环境自检（首次运行会修复 Kit 中被重新格式化文件失效的哈希元数据）
 node packages/toolchain/src/cli.ts doctor
 
-# 2. 构建工作区自带的 Kitchen Helper 示例应用
+# 2. 构建工作区自带的 Kitchen Helper AR 应用
 node packages/toolchain/src/cli.ts build apps/kitchen-helper
 node packages/toolchain/src/cli.ts test apps/kitchen-helper
 node packages/toolchain/src/cli.ts package apps/kitchen-helper
@@ -96,12 +106,17 @@ ivt build && ivt test && ivt package && ivt run --latest
 │   ├── assets/irisview_host_compat.py  # 非 Ubuntu 宿主判定的内存覆盖器
 │   ├── templates/ts-app/         # `ivt new` 模板
 │   └── tests/                    # Vitest 单元测试
-├── apps/kitchen-helper/          # 示例 AR 应用（TypeScript，完整通过 SDK 打包与模拟器验证）
-│   ├── app-src/                  # TS 源码（recipe 状态机 + HUD 渲染 + 持久化）
-│   ├── src/                      # XRManifest.xml + 构建产物 index.js
-│   └── tests/                    # node --test 单元测试
+├── apps/kitchen-helper/          # Kitchen Helper AR 应用（完整通过打包与模拟器验证）
+│   ├── app-src/                  # TS 源码：状态机、HowToCook/DeepSeek 流水线、UI
+│   ├── docs/screenshots/         # 模拟器截图
+│   ├── src/                      # XRManifest.xml、图标资源、构建产物 index.js
+│   ├── tests/                    # node --test 单元测试（状态机 / 解析器 / 降级）
+│   ├── tools/                    # 图标生成脚本
+│   └── README.md / README.zh-CN.md
 ├── docs/
 │   ├── fedora-compatibility.md   # Fedora 兼容层原理与验证
+│   ├── kitchen-helper.md         # 厨房助手设计说明（英文）
+│   ├── kitchen-helper.zh-CN.md   # 厨房助手设计说明（中文）
 │   └── toolchain.md              # CLI、构建流水线、状态目录、环境变量
 ├── vite.config.ts                # Vite+ 格式/检查/任务配置
 └── tsconfig.json                 # 工具链类型检查配置
@@ -130,23 +145,29 @@ app-src/index.ts ──tsc --noEmit──> 类型检查
 
 ## 验证结果（Fedora 44）
 
-| 检查项                                      | 结果                                            |
-| ------------------------------------------- | ----------------------------------------------- |
-| `ivt doctor`                                | pass（host override active，Node/npm 精确匹配） |
-| `ivt build apps/kitchen-helper`             | pass（类型检查 + 10.6 KiB CJS bundle）          |
-| `ivt test apps/kitchen-helper`              | pass（1 个测试文件 + SDK 源码校验）             |
-| `ivt package apps/kitchen-helper`           | pass（`.fuiapp`，debug-unsigned，9.0 KiB）      |
-| `ivt verify --latest`                       | pass（结构与信任关系校验）                      |
-| `ivt smoke apps/kitchen-helper`             | pass（`IrisView application frame 1`）          |
-| `ivt new` + build/test/package/verify/smoke | pass（脚手架应用同样在模拟器呈现第一帧）        |
-| `vp test` / `vp check` / `vp run app:build` | pass                                            |
+| 检查项                                         | 结果                                            |
+| ---------------------------------------------- | ----------------------------------------------- |
+| `ivt doctor`                                   | pass（host override active，Node/npm 精确匹配） |
+| `ivt build apps/kitchen-helper`                | pass（类型检查 + 138.9 KiB CJS bundle）         |
+| `ivt test apps/kitchen-helper`                 | pass（5 个测试文件、36 条断言 + SDK 源码校验）  |
+| `ivt package apps/kitchen-helper`              | pass（`.fuiapp`，debug-unsigned，309.5 KiB）    |
+| `ivt verify <artifact> --allow-debug-unsigned` | pass（结构与信任关系校验）                      |
+| `ivt smoke apps/kitchen-helper`                | pass（`IrisView application frame 1`）          |
+| `ivt new` + build/test/package/verify/smoke    | pass（脚手架应用同样在模拟器呈现第一帧）        |
+| `vp test` / `vp check` / `vp run app:build`    | pass                                            |
 
 示例应用运行日志（模拟器侧）：
 
 ```text
-KITCHEN_READY com.example.kitchenhelper cycles=1
-IrisView application frame 1: content=1 leftHash=992788b4 rightHash=992788b4 leftLit=307200 rightLit=307200
+KITCHEN_HELPER_LIFECYCLE {"lifecycle":0}
+KITCHEN_HELPER_READY {"language":"zh","navigation":true,"completed":0}
+KITCHEN_HELPER_TEXT {"text":"番茄炒蛋","screen":"home"}
+KITCHEN_HELPER_RECIPE {"title":"西红柿炒鸡蛋","steps":11,"source":"local","ingredients":6}
+IrisView application frame 1: content=1 leftHash=... leftLit=307200 rightLit=307200
 ```
+
+应用还通过文字注入验证了异常路径：输入 `*` 会进入 `forced` 异常页。未配置
+`DEEPSEEK_API_KEY` 时走本地解析器；配置后菜谱信息页会显示 `DeepSeek 结构化`。
 
 ## 已知限制
 
@@ -158,3 +179,6 @@ IrisView application frame 1: content=1 leftHash=992788b4 rightHash=992788b4 lef
 - 模拟器会话不支持热重载；修改代码后重新执行 `ivt dev`（或 build/package/run）。
 - `ivt smoke` 在本机沙箱中 Xvfb 不可用时会回退到当前图形会话；CI 中请确保 Xvfb 可用或使用
   带显示器的 runner。
+- Kitchen Helper MVP 不接入 ASR/TTS，语音用模拟器文字输入模拟；DeepSeek Key 只是开发占位符，
+  不应把真实 Key 打进 `.fuiapp`；模拟器 profile 会拒绝原生 `AnimationPlayback`，应用改用
+  帧驱动透明度动画（渐入、脉冲、进度条、波形、彩带）。
