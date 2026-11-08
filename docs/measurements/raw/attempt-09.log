@@ -1,0 +1,175 @@
+▸ starting simulator session (profile release, mono, audio desktop, port 28045)
+  package: /home/surfish/Projects/kitchen-helper/apps/kitchen-helper/artifacts/com.example.kitchenhelper-2.fuiapp
+  state directory: /home/surfish/Projects/kitchen-helper/apps/kitchen-helper/sim-state
+  close the Client window or press Ctrl+C to end the session
+WARNING: unsupported host override active for fedora 44; the officially supported host is Ubuntu 22.04/26.04 x86_64
+IrisView Client target: com.example.kitchenhelper
+IrisView Client installed applications: com.example.kitchenhelper
+IrisView Client modes: applications=managed-v1 music=standard
+IrisView Client UI font: family=思源黑体 face=SourceHanSansSC-Medium.otf weight=100
+
+(irisview-glasses-client:2021): dconf-CRITICAL **: 22:50:53.523: unable to create file '/run/user/1000/dconf/user': 只读文件系统.  dconf will not work properly.
+
+(irisview-glasses-client:2021): dconf-CRITICAL **: 22:50:53.523: unable to create file '/run/user/1000/dconf/user': 只读文件系统.  dconf will not work properly.
+
+(irisview-glasses-client:2021): dconf-CRITICAL **: 22:50:53.523: unable to create file '/run/user/1000/dconf/user': 只读文件系统.  dconf will not work properly.
+
+(irisview-glasses-client:2021): dconf-CRITICAL **: 22:50:53.523: unable to create file '/run/user/1000/dconf/user': 只读文件系统.  dconf will not work properly.
+
+(irisview-glasses-client:2021): dconf-CRITICAL **: 22:50:53.523: unable to create file '/run/user/1000/dconf/user': 只读文件系统.  dconf will not work properly.
+
+(irisview-glasses-client:2021): dconf-CRITICAL **: 22:50:53.523: unable to create file '/run/user/1000/dconf/user': 只读文件系统.  dconf will not work properly.
+
+(irisview-glasses-client:2021): dconf-CRITICAL **: 22:50:53.523: unable to create file '/run/user/1000/dconf/user': 只读文件系统.  dconf will not work properly.
+
+(irisview-glasses-client:2021): dconf-CRITICAL **: 22:50:53.523: unable to create file '/run/user/1000/dconf/user': 只读文件系统.  dconf will not work properly.
+
+(irisview-glasses-client:2021): dconf-CRITICAL **: 22:50:53.523: unable to create file '/run/user/1000/dconf/user': 只读文件系统.  dconf will not work properly.
+
+(irisview-glasses-client:2021): dconf-CRITICAL **: 22:50:53.523: unable to create file '/run/user/1000/dconf/user': 只读文件系统.  dconf will not work properly.
+
+(irisview-glasses-client:2021): dconf-CRITICAL **: 22:50:53.523: unable to create file '/run/user/1000/dconf/user': 只读文件系统.  dconf will not work properly.
+
+(irisview-glasses-client:2021): dconf-CRITICAL **: 22:50:53.523: unable to create file '/run/user/1000/dconf/user': 只读文件系统.  dconf will not work properly.
+
+(irisview-glasses-client:2021): dconf-CRITICAL **: 22:50:53.523: unable to create file '/run/user/1000/dconf/user': 只读文件系统.  dconf will not work properly.
+
+(irisview-glasses-client:2021): dconf-CRITICAL **: 22:50:53.524: unable to create file '/run/user/1000/dconf/user': 只读文件系统.  dconf will not work properly.
+
+(irisview-glasses-client:2021): dconf-CRITICAL **: 22:50:53.524: unable to create file '/run/user/1000/dconf/user': 只读文件系统.  dconf will not work properly.
+
+(irisview-glasses-client:2021): dconf-CRITICAL **: 22:50:53.524: unable to create file '/run/user/1000/dconf/user': 只读文件系统.  dconf will not work properly.
+
+(irisview-glasses-client:2021): dconf-CRITICAL **: 22:50:53.525: unable to create file '/run/user/1000/dconf/user': 只读文件系统.  dconf will not work properly.
+
+(irisview-glasses-client:2021): dconf-CRITICAL **: 22:50:53.525: unable to create file '/run/user/1000/dconf/user': 只读文件系统.  dconf will not work properly.
+
+(irisview-glasses-client:2021): dconf-CRITICAL **: 22:50:53.525: unable to create file '/run/user/1000/dconf/user': 只读文件系统.  dconf will not work properly.
+
+(irisview-glasses-client:2021): dconf-CRITICAL **: 22:50:53.525: unable to create file '/run/user/1000/dconf/user': 只读文件系统.  dconf will not work properly.
+
+(irisview-glasses-client:2021): dconf-CRITICAL **: 22:50:53.530: unable to create file '/run/user/1000/dconf/user': 只读文件系统.  dconf will not work properly.
+
+(irisview-glasses-client:2021): dconf-CRITICAL **: 22:50:53.530: unable to create file '/run/user/1000/dconf/user': 只读文件系统.  dconf will not work properly.
+
+(irisview-glasses-client:2021): dconf-CRITICAL **: 22:50:53.531: unable to create file '/run/user/1000/dconf/user': 只读文件系统.  dconf will not work properly.
+
+(irisview-glasses-client:2021): dconf-CRITICAL **: 22:50:53.539: unable to create file '/run/user/1000/dconf/user': 只读文件系统.  dconf will not work properly.
+
+(irisview-glasses-client:2021): dconf-CRITICAL **: 22:50:53.539: unable to create file '/run/user/1000/dconf/user': 只读文件系统.  dconf will not work properly.
+
+(irisview-glasses-client:2021): dconf-CRITICAL **: 22:50:53.539: unable to create file '/run/user/1000/dconf/user': 只读文件系统.  dconf will not work properly.
+
+(irisview-glasses-client:2021): dconf-CRITICAL **: 22:50:53.539: unable to create file '/run/user/1000/dconf/user': 只读文件系统.  dconf will not work properly.
+
+(irisview-glasses-client:2021): dconf-CRITICAL **: 22:50:53.539: unable to create file '/run/user/1000/dconf/user': 只读文件系统.  dconf will not work properly.
+
+(irisview-glasses-client:2021): dconf-CRITICAL **: 22:50:53.539: unable to create file '/run/user/1000/dconf/user': 只读文件系统.  dconf will not work properly.
+
+(irisview-glasses-client:2021): dconf-CRITICAL **: 22:50:53.539: unable to create file '/run/user/1000/dconf/user': 只读文件系统.  dconf will not work properly.
+
+(irisview-glasses-client:2021): dconf-CRITICAL **: 22:50:53.539: unable to create file '/run/user/1000/dconf/user': 只读文件系统.  dconf will not work properly.
+
+(irisview-glasses-client:2021): dconf-CRITICAL **: 22:50:53.539: unable to create file '/run/user/1000/dconf/user': 只读文件系统.  dconf will not work properly.
+
+(irisview-glasses-client:2021): dconf-CRITICAL **: 22:50:53.539: unable to create file '/run/user/1000/dconf/user': 只读文件系统.  dconf will not work properly.
+
+(irisview-glasses-client:2021): dconf-CRITICAL **: 22:50:53.539: unable to create file '/run/user/1000/dconf/user': 只读文件系统.  dconf will not work properly.
+
+(irisview-glasses-client:2021): dconf-CRITICAL **: 22:50:53.539: unable to create file '/run/user/1000/dconf/user': 只读文件系统.  dconf will not work properly.
+
+(irisview-glasses-client:2021): dconf-CRITICAL **: 22:50:53.539: unable to create file '/run/user/1000/dconf/user': 只读文件系统.  dconf will not work properly.
+
+(irisview-glasses-client:2021): dconf-CRITICAL **: 22:50:53.539: unable to create file '/run/user/1000/dconf/user': 只读文件系统.  dconf will not work properly.
+
+(irisview-glasses-client:2021): dconf-CRITICAL **: 22:50:53.539: unable to create file '/run/user/1000/dconf/user': 只读文件系统.  dconf will not work properly.
+
+(irisview-glasses-client:2021): dconf-CRITICAL **: 22:50:53.539: unable to create file '/run/user/1000/dconf/user': 只读文件系统.  dconf will not work properly.
+
+(irisview-glasses-client:2021): dconf-CRITICAL **: 22:50:53.539: unable to create file '/run/user/1000/dconf/user': 只读文件系统.  dconf will not work properly.
+
+(irisview-glasses-client:2021): dconf-CRITICAL **: 22:50:53.539: unable to create file '/run/user/1000/dconf/user': 只读文件系统.  dconf will not work properly.
+
+(irisview-glasses-client:2021): dconf-CRITICAL **: 22:50:53.539: unable to create file '/run/user/1000/dconf/user': 只读文件系统.  dconf will not work properly.
+
+(irisview-glasses-client:2021): dconf-CRITICAL **: 22:50:53.539: unable to create file '/run/user/1000/dconf/user': 只读文件系统.  dconf will not work properly.
+
+(irisview-glasses-client:2021): dconf-CRITICAL **: 22:50:53.539: unable to create file '/run/user/1000/dconf/user': 只读文件系统.  dconf will not work properly.
+
+(irisview-glasses-client:2021): dconf-CRITICAL **: 22:50:53.539: unable to create file '/run/user/1000/dconf/user': 只读文件系统.  dconf will not work properly.
+IrisView application runner: launching tcp carrier for 02:00:00:00:00:01
+_amdgpu_device_initialize: amdgpu_get_auth (1) failed (-1)
+MESA: error: amdgpu: amdgpu_device_initialize failed.
+MESA-EGL: warning: egl: failed to create dri2 screen
+_amdgpu_device_initialize: amdgpu_get_auth (1) failed (-1)
+MESA: error: amdgpu: amdgpu_device_initialize failed.
+MESA-EGL: warning: egl: failed to create dri2 screen
+libunwind: __unw_add_dynamic_fde: bad fde: FDE is really a CIE
+libunwind: __unw_add_dynamic_fde: bad fde: FDE is really a CIE
+libunwind: __unw_add_dynamic_fde: bad fde: FDE is really a CIE
+libunwind: __unw_add_dynamic_fde: bad fde: FDE is really a CIE
+libunwind: __unw_add_dynamic_fde: bad fde: FDE is really a CIE
+libunwind: __unw_add_dynamic_fde: bad fde: FDE is really a CIE
+libunwind: __unw_add_dynamic_fde: bad fde: FDE is really a CIE
+libunwind: __unw_add_dynamic_fde: bad fde: FDE is really a CIE
+libunwind: __unw_add_dynamic_fde: bad fde: FDE is really a CIE
+libunwind: __unw_add_dynamic_fde: bad fde: FDE is really a CIE
+libunwind: __unw_add_dynamic_fde: bad fde: FDE is really a CIE
+libunwind: __unw_add_dynamic_fde: bad fde: FDE is really a CIE
+libunwind: __unw_add_dynamic_fde: bad fde: FDE is really a CIE
+libunwind: __unw_add_dynamic_fde: bad fde: FDE is really a CIE
+libunwind: __unw_add_dynamic_fde: bad fde: FDE is really a CIE
+libunwind: __unw_add_dynamic_fde: bad fde: FDE is really a CIE
+libunwind: __unw_add_dynamic_fde: bad fde: FDE is really a CIE
+libunwind: __unw_add_dynamic_fde: bad fde: FDE is really a CIE
+libunwind: __unw_add_dynamic_fde: bad fde: FDE is really a CIE
+libunwind: __unw_add_dynamic_fde: bad fde: FDE is really a CIE
+libunwind: __unw_add_dynamic_fde: bad fde: FDE is really a CIE
+libunwind: __unw_add_dynamic_fde: bad fde: FDE is really a CIE
+libunwind: __unw_add_dynamic_fde: bad fde: FDE is really a CIE
+libunwind: __unw_add_dynamic_fde: bad fde: FDE is really a CIE
+libunwind: __unw_add_dynamic_fde: bad fde: FDE is really a CIE
+libunwind: __unw_add_dynamic_fde: bad fde: FDE is really a CIE
+[0;39m22:50:53.768 [2043] [Engine] Engine vendor:Mesa, renderer:llvmpipe (LLVM 22.1.8, 256 bits), version:OpenGL ES 3.2 Mesa 26.2.6, glsl version:OpenGL ES GLSL ES 3.20[0;39m
+[0;39m22:50:53.768 [2043] [Engine] Engine coroutine threads:1, bugs: texelFetchOffset:0 generateMipmaps:0[0;39m
+libunwind: __unw_add_dynamic_fde: bad fde: FDE is really a CIE
+[0;39m22:50:53.768 [2043] [Engine] Engine material style:0[0;39m
+libunwind: __unw_add_dynamic_fde: bad fde: FDE is really a CIE
+[34m22:50:53.768 [2043] [FusionUI] EventLogManager::setRawMask from property 0[0;39m
+[0;39m22:50:53.768 [2043] [FusionUI][GlassesHost] remote runtime initialized[0;39m
+libunwind: __unw_add_dynamic_fde: bad fde: FDE is really a CIE
+libunwind: __unw_add_dynamic_fde: bad fde: FDE is really a CIE
+KITCHEN_HELPER_DATA_DIR {"path":"/home/surfish/Projects/kitchen-helper/apps/kitchen-helper/sim-state/applications/data/com.example.kitchenhelper"}
+KITCHEN_HELPER_LLM_KEY {"source":"file","file":"/home/surfish/Projects/kitchen-helper/apps/kitchen-helper/sim-state/applications/data/com.example.kitchenhelper/deepseek-key.txt","model":"deepseek-flash"}
+KITCHEN_HELPER_LIFECYCLE {"lifecycle":0}
+KITCHEN_HELPER_READY {"language":"zh","navigation":true,"completed":7}
+libunwind: __unw_add_dynamic_fde: bad fde: FDE is really a CIE
+libunwind: __unw_add_dynamic_fde: bad fde: FDE is really a CIE
+KITCHEN_HELPER_TEXT {"text":"糖醋排骨","screen":"home","at":1794063056180}
+removing from  _widgets
+removing from  _widgets
+removing from  _widgets
+removing from  _widgets
+removing from  _widgets
+removing from  _widgets
+removing from  _widgets
+removing from  _widgets
+removing from  _widgets
+removing from  _widgets
+removing from  _widgets
+removing from  _widgets
+removing from  _widgets
+removing from  _widgets
+removing from  _widgets
+removing from  _widgets
+removing from  _widgets
+removing from  _widgets
+removing from  _widgets
+removing from  _widgets
+removing from  _widgets
+removing from  _widgets
+removing from  _widgets
+removing from  _widgets
+removing from  _widgets
+KITCHEN_HELPER_SCREEN {"screen":"loading","step":null,"dish":null}
+KITCHEN_HELPER_LATENCY {"requestId":1,"dish":"糖醋排骨","source":"deepseek","steps":8,"inputToPipelineMs":12073,"pipelineToScreenMs":11,"inputToScreenMs":12084,"minLoadingWaitMs":0}

@@ -73,6 +73,8 @@ HowToCook 搜索 ──► 详情页 ──► 通过 GitHub contents API 读取
 - Markdown 通过 GitHub contents API 读取，因为部分网络无法直连 `raw.githubusercontent.com`。
 - GitHub 失败时退回到详情页可见文本。
 - 番茄炒蛋 / 可乐鸡翅 / 酸辣土豆丝三道菜内置为完整结构化快照，离线也能演示。
+- HowToCook 的 GET 请求在网络错误、429 与 5xx 时自动重试 3 次，重试记录为
+  `KITCHEN_HELPER_HTTP_RETRY`；仍失败才降级。
 
 ## DeepSeek API Key 与状态目录
 
@@ -101,6 +103,19 @@ DeepSeek 调用关闭思考模式并显式设置预算（结构化 90 秒 / 8K t
 
 > ⚠️ 打进 `.fuiapp` 的 Key（例如通过 `app-src/config.ts`）对拿到安装包的人可见。运行时
 > Key 文件不会进入安装包；生产环境仍应通过后端代理下发短期令牌。
+
+## 可观测日志
+
+应用在模拟器 stdout 输出结构化日志，供验收、排障与延迟测量使用：
+
+| 日志                        | 内容                                                                       |
+| --------------------------- | -------------------------------------------------------------------------- |
+| `KITCHEN_HELPER_LATENCY`    | 输入 → 结构化 → 菜谱页应用的时延（requestId、dish、source、steps、毫秒数） |
+| `KITCHEN_HELPER_FALLBACK`   | 检索 / 读取 / 模型降级的原因（stage、reason，含 error cause 链）           |
+| `KITCHEN_HELPER_HTTP_RETRY` | GET 重试记录（url、attempt、status）                                       |
+
+2026-11-07 的 10 次连续测量：输入 → ARUI 更新最小 9.8 s、中位 12.7 s、P95 / 最大 16.5 s。
+测量协议、CSV 与逐次原始日志见 [docs/measurements](../../docs/measurements/)。
 
 ## 构建、测试与运行
 
@@ -168,6 +183,8 @@ FUSIONUI_DEMO_TEST_USER_TEXT='番茄炒蛋' \
 - 三道真实 HowToCook 菜谱的 Markdown 倒计时 / 火候 / 图标提取；
 - DeepSeek JSON 校验、截断与离线降级；
 - 从状态目录运行时读取 DeepSeek Key（环境变量优先、忽略注释行）；
+- 指令自适应排版：短指令单页最大字号、超长指令最多 3 页且不溢出；
+- HTTP 超时与错误封装（`fetchText` / `postJson`）；
 - `*` 强制异常与文字命令解析。
 
 `smoke` 会启动模拟器、安装应用包并等待真实应用帧呈现，是端到端验收命令。

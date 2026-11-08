@@ -15,6 +15,10 @@ HowToCook 拉取 + DeepSeek 结构化 → 菜谱信息 → 大卡片事前准备
 [apps/kitchen-helper/README.zh-CN.md](apps/kitchen-helper/README.zh-CN.md) 与
 [docs/kitchen-helper.zh-CN.md](docs/kitchen-helper.zh-CN.md)。
 
+赛题提交材料：2 页作品说明 [docs/kitchen-helper-brief.zh-CN.pdf](docs/kitchen-helper-brief.zh-CN.pdf)、
+演示视频口播稿 [docs/demo-voiceover.zh-CN.md](docs/demo-voiceover.zh-CN.md)，延迟原始数据在
+[docs/measurements/](docs/measurements/)。
+
 | 首页                                                   | 事前准备                                               | 步骤页                                                    |
 | ------------------------------------------------------ | ------------------------------------------------------ | --------------------------------------------------------- |
 | ![首页](apps/kitchen-helper/docs/screenshots/home.png) | ![准备](apps/kitchen-helper/docs/screenshots/prep.png) | ![步骤](apps/kitchen-helper/docs/screenshots/cooking.png) |
@@ -125,7 +129,10 @@ ivt build && ivt test && ivt package && ivt run --latest
 │   ├── fedora-compatibility.md   # Fedora 兼容层原理与验证
 │   ├── kitchen-helper.md         # 厨房助手设计说明（英文）
 │   ├── kitchen-helper.zh-CN.md   # 厨房助手设计说明（中文）
-│   └── toolchain.md              # CLI、构建流水线、状态目录、环境变量
+│   ├── toolchain.md              # CLI、构建流水线、状态目录、环境变量
+│   ├── demo-voiceover.zh-CN.md   # 演示视频口播稿（30/60/90 秒）
+│   ├── kitchen-helper-brief.zh-CN.pdf  # JUNCTION 赛题 2 页作品说明
+│   └── measurements/             # 延迟测量协议、CSV 与原始日志
 ├── vite.config.ts                # Vite+ 格式/检查/任务配置
 └── tsconfig.json                 # 工具链类型检查配置
 ```
@@ -156,9 +163,9 @@ app-src/index.ts ──tsc --noEmit──> 类型检查
 | 检查项                                         | 结果                                            |
 | ---------------------------------------------- | ----------------------------------------------- |
 | `ivt doctor`                                   | pass（host override active，Node/npm 精确匹配） |
-| `ivt build apps/kitchen-helper`                | pass（类型检查 + 138.9 KiB CJS bundle）         |
+| `ivt build apps/kitchen-helper`                | pass（类型检查 + 160.2 KiB CJS bundle）         |
 | `ivt test apps/kitchen-helper`                 | pass（9 个测试文件、61 个测试用例 + SDK 校验）  |
-| `ivt package apps/kitchen-helper`              | pass（`.fuiapp`，debug-unsigned，309.5 KiB）    |
+| `ivt package apps/kitchen-helper`              | pass（`.fuiapp`，debug-unsigned，323.3 KiB）    |
 | `ivt verify <artifact> --allow-debug-unsigned` | pass（结构与信任关系校验）                      |
 | `ivt smoke apps/kitchen-helper`                | pass（`IrisView application frame 1`）          |
 | `ivt new` + build/test/package/verify/smoke    | pass（脚手架应用同样在模拟器呈现第一帧）        |
@@ -171,13 +178,31 @@ KITCHEN_HELPER_DATA_DIR {"path":".../sim-state/applications/data/com.example.kit
 KITCHEN_HELPER_LLM_KEY {"source":"file","file":".../deepseek-key.txt","model":"deepseek-flash"}
 KITCHEN_HELPER_LIFECYCLE {"lifecycle":0}
 KITCHEN_HELPER_READY {"language":"zh","navigation":true,"completed":0}
-KITCHEN_HELPER_TEXT {"text":"番茄炒蛋","screen":"home"}
-KITCHEN_HELPER_RECIPE {"title":"西红柿炒鸡蛋","steps":11,"source":"local","ingredients":6}
+KITCHEN_HELPER_TEXT {"text":"红烧肉","screen":"home","at":1794051234567}
+KITCHEN_HELPER_SCREEN {"screen":"loading","step":null,"dish":null}
+KITCHEN_HELPER_LATENCY {"requestId":1,"dish":"简易红烧肉","source":"deepseek","steps":11,
+  "inputToPipelineMs":14639,"pipelineToScreenMs":7,"inputToScreenMs":14646,"minLoadingWaitMs":0}
+KITCHEN_HELPER_RECIPE {"title":"简易红烧肉","steps":11,"source":"deepseek","ingredients":14}
 IrisView application frame 1: content=1 leftHash=... leftLit=307200 rightLit=307200
 ```
 
 应用还通过文字注入验证了异常路径：输入 `*` 会进入 `forced` 异常页。未配置
 `DEEPSEEK_API_KEY` 时走本地解析器；配置后菜谱信息页会显示 `DeepSeek 结构化`。
+
+## 延迟实测与可观测日志
+
+应用启动后会在模拟器 stdout 输出结构化日志，便于验收与复现：
+
+| 日志                        | 用途                                                                       |
+| --------------------------- | -------------------------------------------------------------------------- |
+| `KITCHEN_HELPER_LATENCY`    | 输入 → 结构化 → 菜谱页应用的时延（requestId、dish、source、steps、毫秒数） |
+| `KITCHEN_HELPER_FALLBACK`   | 检索 / 读取 / 模型降级的原因（stage、reason，含 error cause 链）           |
+| `KITCHEN_HELPER_HTTP_RETRY` | GET 重试记录（url、attempt、status）                                       |
+
+HowToCook 的 GET 请求在网络错误、429 与 5xx 时自动重试 3 次；模型侧退回本地解析或离线快照。
+2026-11-07 在模拟器 release/off、单目 640×480 下连续测量 11 次，10 次成功：输入 → ARUI 更新
+最小 **9.8 s**、中位 **12.7 s**、P95 / 最大 **16.5 s**，10 次均由 DeepSeek 结构化；另 1 次超过
+测量脚本 60 s 上限记为失败。测量协议、CSV 与逐次原始日志见 [docs/measurements/](docs/measurements/)。
 
 ## 已知限制
 
@@ -189,6 +214,8 @@ IrisView application frame 1: content=1 leftHash=... leftLit=307200 rightLit=307
 - 模拟器会话不支持热重载；修改代码后重新执行 `ivt dev`（或 build/package/run）。
 - `ivt smoke` 在本机沙箱中 Xvfb 不可用时会回退到当前图形会话；CI 中请确保 Xvfb 可用或使用
   带显示器的 runner。
-- Kitchen Helper MVP 不接入 ASR/TTS，语音用模拟器文字输入模拟；DeepSeek Key 只是开发占位符，
-  不应把真实 Key 打进 `.fuiapp`；模拟器 profile 会拒绝原生 `AnimationPlayback`，应用改用
-  帧驱动透明度动画（渐入、脉冲、进度条、波形、彩带）。
+- Kitchen Helper MVP 不接入 ASR/TTS，语音通道未实现，全部交互与演示均通过模拟器文字通道
+  完成；DeepSeek Key 只是开发占位符，不应把真实 Key 打进 `.fuiapp`；模拟器 profile 会拒绝
+  原生 `AnimationPlayback`，应用改用帧驱动透明度动画（渐入、脉冲、进度条、波形、彩带）。
+- 应用依赖联网检索与 DeepSeek；网络抖动已通过 GET 重试与本地解析 / 离线快照兜底，但
+  「语音与文本跨方式切换、独立纠正」尚未实现，赛题材料中已按规划标注。

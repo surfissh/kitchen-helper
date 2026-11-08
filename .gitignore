@@ -28,6 +28,9 @@ dist-ssr
 .env.*
 !.env.example
 
+# Challenge brief (read-only input, not part of the project)
+/JUNCTION CHINA 2026智能穿戴赛道亮亮视野LEION赛题.pdf
+
 # Vendored, read-only inputs (see docs/fedora-compatibility.md)
 /IrisView-Developer-Kit-v1.0.0/
 /IrisView-Platform-Alpha-中英双语版-v3/
@@ -50,3 +53,6 @@ apps/kitchen-helper/.sim-state.lock
 
 # Generated packaged entry for the demo application
 apps/kitchen-helper/src/index.js
+
+# Curated evidence logs (see docs/measurements)
+!docs/measurements/raw/*.log

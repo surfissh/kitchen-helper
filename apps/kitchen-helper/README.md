@@ -112,6 +112,21 @@ the pipeline falls back to the offline snapshot / local parser.
 > anyone with the package. The runtime key file never enters the package; production must
 > proxy short-lived tokens through a backend.
 
+## Observability logs
+
+The app writes structured logs to the simulator's stdout for acceptance checks, debugging and
+latency measurement:
+
+| Event                       | Content                                                                                |
+| --------------------------- | -------------------------------------------------------------------------------------- |
+| `KITCHEN_HELPER_LATENCY`    | input → structuring → recipe screen timings (requestId, dish, source, steps, ms)       |
+| `KITCHEN_HELPER_FALLBACK`   | why a retrieval / model stage degraded (stage, reason including the error cause chain) |
+| `KITCHEN_HELPER_HTTP_RETRY` | GET retry records (url, attempt, status)                                               |
+
+Across ten consecutive sessions on 2026-11-07, input → ARUI update took 9.8 s minimum,
+12.7 s median, and 16.5 s at P95 / maximum. Protocol, CSV and per-run raw logs live in
+[docs/measurements](../../docs/measurements/).
+
 ## Build, test and run
 
 From the workspace root:
