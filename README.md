@@ -19,10 +19,6 @@ HowToCook 拉取 + DeepSeek 结构化 → 菜谱信息 → 大卡片事前准备
 演示视频口播稿 [docs/demo-voiceover.zh-CN.md](docs/demo-voiceover.zh-CN.md)，延迟原始数据在
 [docs/measurements/](docs/measurements/)。
 
-| 首页                                                   | 事前准备                                               | 步骤页                                                    |
-| ------------------------------------------------------ | ------------------------------------------------------ | --------------------------------------------------------- |
-| ![首页](apps/kitchen-helper/docs/screenshots/home.png) | ![准备](apps/kitchen-helper/docs/screenshots/prep.png) | ![步骤](apps/kitchen-helper/docs/screenshots/cooking.png) |
-
 ## 功能
 
 | 能力                                 | 说明                                                                                  |

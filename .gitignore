@@ -56,3 +56,7 @@ apps/kitchen-helper/src/index.js
 
 # Curated evidence logs (see docs/measurements)
 !docs/measurements/raw/*.log
+
+apps/kitchen-helper/docs/screenshots
+
+docs/
