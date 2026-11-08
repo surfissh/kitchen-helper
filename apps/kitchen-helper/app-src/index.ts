@@ -53,6 +53,10 @@ interface PendingLoad {
   readonly recipe?: Recipe;
   readonly error?: AppError;
   readonly readyAtMs: number;
+  /** Wall-clock submission time of the text that started this request. */
+  readonly inputAtMs: number;
+  /** Wall-clock time the async pipeline resolved (before the screen change). */
+  readonly pipelineDoneAtMs: number;
 }
 
 function displayLanguage(): UiLanguage {
@@ -73,6 +77,8 @@ class KitchenController {
   private active = false;
   private pendingLoad: PendingLoad | null = null;
   private loadingStartedAtMs = 0;
+  /** Wall-clock time the current text submission arrived from the input queue. */
+  private lastInputAtMs = 0;
   private lastScreen = "";
   private readonly language: UiLanguage;
 
@@ -167,7 +173,12 @@ class KitchenController {
       const input = takeTextInput();
       if (!input) break;
       guard += 1;
-      log("KITCHEN_HELPER_TEXT", { text: input.text, screen: this.state.screen });
+      this.lastInputAtMs = Date.now();
+      log("KITCHEN_HELPER_TEXT", {
+        text: input.text,
+        screen: this.state.screen,
+        at: this.lastInputAtMs,
+      });
       this.dispatch(handleTextInput(this.state, input.text));
     }
   }
@@ -183,6 +194,7 @@ class KitchenController {
         this.pendingLoad = null;
         this.loadingStartedAtMs = this.state.clockMs;
         const { query, requestId } = effect;
+        const inputAtMs = this.lastInputAtMs || Date.now();
         void loadRecipe(query, (phase, detail) => {
           this.state = loadingProgress(this.state, requestId, phase, detail);
         })
@@ -191,6 +203,8 @@ class KitchenController {
               requestId,
               recipe,
               readyAtMs: this.loadingReadyAt(),
+              inputAtMs,
+              pipelineDoneAtMs: Date.now(),
             });
           })
           .catch((error: unknown) => {
@@ -202,6 +216,8 @@ class KitchenController {
               requestId,
               error: { ...base, detail },
               readyAtMs: this.loadingReadyAt(),
+              inputAtMs,
+              pipelineDoneAtMs: Date.now(),
             });
           });
         break;
@@ -246,6 +262,17 @@ class KitchenController {
     if (this.state.clockMs < pending.readyAtMs) return;
     this.pendingLoad = null;
     if (pending.recipe) {
+      const appliedAtMs = Date.now();
+      log("KITCHEN_HELPER_LATENCY", {
+        requestId: pending.requestId,
+        dish: pending.recipe.title.zh,
+        source: pending.recipe.source.extractedBy,
+        steps: pending.recipe.steps.length,
+        inputToPipelineMs: pending.pipelineDoneAtMs - pending.inputAtMs,
+        pipelineToScreenMs: appliedAtMs - pending.pipelineDoneAtMs,
+        inputToScreenMs: appliedAtMs - pending.inputAtMs,
+        minLoadingWaitMs: Math.max(0, pending.readyAtMs - pending.pipelineDoneAtMs),
+      });
       log("KITCHEN_HELPER_RECIPE", {
         title: pending.recipe.title.zh,
         steps: pending.recipe.steps.length,

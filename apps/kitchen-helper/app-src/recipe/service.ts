@@ -19,6 +19,20 @@ import { findOfflineRecipe } from "./recommended.ts";
 
 export type ProgressReporter = (phase: LoadingPhase, detail: Localized) => void;
 
+/** Log why a network/LLM stage fell back, without leaking keys or full responses. */
+function logFallback(stage: string, error: unknown): void {
+  const parts: string[] = [];
+  let current: unknown = error;
+  for (let depth = 0; current && depth < 4; depth += 1) {
+    const value = current as { message?: unknown; code?: unknown; cause?: unknown };
+    const text = typeof value.message === "string" ? value.message : String(current);
+    const code = value.code === undefined ? "" : ` [${String(value.code)}]`;
+    parts.push(`${text}${code}`);
+    current = value.cause;
+  }
+  console.log(`KITCHEN_HELPER_FALLBACK ${JSON.stringify({ stage, reason: parts.join(" <- ") })}`);
+}
+
 function l(zh: string, en: string): Localized {
   return { zh, en };
 }
@@ -56,6 +70,7 @@ export async function loadRecipe(
   try {
     search = await searchHowToCook(trimmed);
   } catch (error) {
+    logFallback("search", error);
     if (offline) return finishOffline(offline, report);
     throw asPipelineError(error, trimmed);
   }
@@ -65,6 +80,7 @@ export async function loadRecipe(
   try {
     material = await fetchRecipeMaterial(search);
   } catch (error) {
+    logFallback("fetch", error);
     if (offline) return finishOffline(offline, report);
     throw asPipelineError(error, trimmed);
   }
@@ -86,6 +102,7 @@ export async function loadRecipe(
     } catch (error) {
       // A slow or unavailable model should not kill the demo: fall through to
       // the offline snapshot or the deterministic parser.
+      logFallback("deepseek", error);
       if (offline) return finishOffline(offline, report);
       try {
         const local = extractLocalRecipe(sourceText, {

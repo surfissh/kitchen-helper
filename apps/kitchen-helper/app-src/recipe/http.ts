@@ -23,6 +23,16 @@ function isAbortError(error: unknown): boolean {
   return error instanceof Error && (error.name === "AbortError" || error.name === "TimeoutError");
 }
 
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Transient failures worth retrying: no HTTP status, rate limits and 5xx. */
+function isRetryable(error: unknown): boolean {
+  if (!(error instanceof HttpError)) return true;
+  return error.status === 0 || error.status === 429 || error.status >= 500;
+}
+
 /**
  * Run one request and consume its body under a single deadline.
  *
@@ -31,7 +41,7 @@ function isAbortError(error: unknown): boolean {
  * response headers, so clearing the timer on headers alone would leave the
  * actual generation unbounded.
  */
-async function request<T>(
+async function requestOnce<T>(
   url: string,
   options: FetchOptions,
   consume: (response: Response) => Promise<T>,
@@ -62,6 +72,34 @@ async function request<T>(
     throw new HttpError(`network request failed: ${reason}`, url);
   } finally {
     clearTimeout(timer);
+  }
+}
+
+/** Retry budget for idempotent GETs; chat completions are never retried here. */
+const GET_ATTEMPTS = 3;
+const RETRY_BASE_DELAY_MS = 700;
+
+/**
+ * Read-only requests get a small retry budget.  The HowToCook site sits behind
+ * a CDN that occasionally drops a connection or answers 429; a transient blip
+ * must not turn into an error screen during a demo.  POSTs (model calls) keep a
+ * single attempt because the model layer already retries malformed answers.
+ */
+async function request<T>(
+  url: string,
+  options: FetchOptions,
+  consume: (response: Response) => Promise<T>,
+): Promise<T> {
+  const attempts = (options.method ?? "GET") === "GET" ? GET_ATTEMPTS : 1;
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await requestOnce(url, options, consume);
+    } catch (error) {
+      if (attempt >= attempts || !isRetryable(error)) throw error;
+      const status = error instanceof HttpError ? error.status : 0;
+      console.log(`KITCHEN_HELPER_HTTP_RETRY ${JSON.stringify({ url, attempt, status })}`);
+      await delay(RETRY_BASE_DELAY_MS * attempt);
+    }
   }
 }
 
